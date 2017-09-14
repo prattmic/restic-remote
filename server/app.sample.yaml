@@ -1,0 +1,12 @@
+runtime: go
+api_version: go1.8
+
+handlers:
+- url: /.*
+  secure: always
+  script: _go_app
+
+env_variables:
+  AUTH0_API_JWKS: "https://{AUTH0_DOMAIN}/.well-known/jwks.json"
+  AUTH0_API_ISSUER: "https://{AUTH0_DOMAIN}/"
+  AUTH0_API_AUDIENCE: "{API_IDENTIFIER}"
