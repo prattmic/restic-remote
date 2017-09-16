@@ -32,6 +32,13 @@ func boundStringFlag(name, d, desc string) {
 	viper.BindPFlag(name, pflag.Lookup(fname))
 }
 
+// boundStringSliceFlag is equivalent to boundStringFlag for StringSlice flags.
+func boundStringSliceFlag(name string, d []string, desc string) {
+	fname := strings.Replace(name, ".", "-", -1)
+	pflag.StringSlice(fname, d, desc)
+	viper.BindPFlag(name, pflag.Lookup(fname))
+}
+
 func init() {
 	// viper "api" sub-tree.
 	boundStringFlag("api.root", "", "API root URL")
@@ -47,6 +54,9 @@ func init() {
 	boundStringFlag("restic.hostname", "", "hostname to use for restic snapshots")
 	boundStringFlag("restic.google-project-id", "", "Google Cloud project ID for restic repositories using the GCS backend")
 	boundStringFlag("restic.google-credentials", "", "Google Cloud application credentials JSON path for restic repositories using the GCS backend")
+
+	// viper "backup" list of paths to back up.
+	boundStringSliceFlag("backup", nil, "paths to backup")
 }
 
 const configFolderName = "restic-remote"
@@ -140,10 +150,14 @@ func main() {
 		log.Fatalf("Failed to create restic: %v", err)
 	}
 
-	v, err := r.Snapshots()
-	if err != nil {
-		log.Fatalf("Failed to get snapshots: %v", err)
+	backup := viper.GetStringSlice("backup")
+	if len(backup) < 1 {
+		log.Fatalf("Nothing to back up!")
 	}
 
-	log.Printf("restic snapshots: %s", v)
+	so, se, err := r.Backup(backup)
+	log.Printf("restic backup: stdout:\n%s\nstderr:\n%s", so, se)
+	if err != nil {
+		log.Fatalf("Failed to backup: %v", err)
+	}
 }

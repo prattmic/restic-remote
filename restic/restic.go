@@ -94,3 +94,19 @@ func (r *Restic) Snapshots() (string, error) {
 
 	return so, nil
 }
+
+// Backup creates a new snapshot of dirs.
+//
+// It returns stdout and stderr from restic.
+func (r *Restic) Backup(dirs []string) (string, string, error) {
+	var args []string
+	args = append(args, "backup", "--hostname", r.config.Hostname)
+	args = append(args, dirs...)
+
+	so, se, err := r.run(args...)
+	if err != nil {
+		return so, se, fmt.Errorf("'restic backup' failed with error %v", err)
+	}
+
+	return so, se, nil
+}
