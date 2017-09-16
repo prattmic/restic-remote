@@ -1,3 +1,8 @@
+hostname: HOSTNAME
+backup:
+  - /path/one
+  - /path/two
+
 api:
   root: http://api.url
   client-id: AUTH0_CLIENT_ID
@@ -9,6 +14,5 @@ restic:
   binary: /path/to/restic
   repository: RESTIC_REPOSITORY
   password: RESTIC_PASSWORD
-  hostname: RESTIC_HOSTNAME
   google-project-id: GOOGLE_PROJECT_ID
   google-credentials: GOOGLE_APPLICATION_CREDENTIALS

@@ -40,6 +40,10 @@ func boundStringSliceFlag(name string, d []string, desc string) {
 }
 
 func init() {
+	// viper top-level options.
+	boundStringSliceFlag("backup", nil, "list of paths to backup")
+	boundStringFlag("hostname", "", "hostname to use for api and snapshots")
+
 	// viper "api" sub-tree.
 	boundStringFlag("api.root", "", "API root URL")
 	boundStringFlag("api.client-id", "", "API client ID")
@@ -51,12 +55,8 @@ func init() {
 	boundStringFlag("restic.binary", "", "restic binary path")
 	boundStringFlag("restic.repository", "", "restic repository path")
 	boundStringFlag("restic.password", "", "restic repository password")
-	boundStringFlag("restic.hostname", "", "hostname to use for restic snapshots")
 	boundStringFlag("restic.google-project-id", "", "Google Cloud project ID for restic repositories using the GCS backend")
 	boundStringFlag("restic.google-credentials", "", "Google Cloud application credentials JSON path for restic repositories using the GCS backend")
-
-	// viper "backup" list of paths to back up.
-	boundStringSliceFlag("backup", nil, "paths to backup")
 }
 
 const configFolderName = "restic-remote"
@@ -111,6 +111,11 @@ func main() {
 		log.Printf("Unable to read config: %v", err)
 	}
 
+	hostname := viper.GetString("hostname")
+	if hostname == "" {
+		log.Fatalf("hostname required")
+	}
+
 	var aconf api.Config
 	if err := viper.UnmarshalKey("api", &aconf); err != nil {
 		log.Fatalf("Error unmarshalling API config: %v", err)
@@ -121,15 +126,10 @@ func main() {
 		log.Fatalf("Failed to create API: %v", err)
 	}
 
-	host, err := os.Hostname()
-	if err != nil {
-		log.Fatalf("Error retrieving hostname: %v", err)
-	}
-
 	if err := a.WriteEvent(&event.Event{
 		Type:      event.ClientStarted,
 		Timestamp: time.Now(),
-		Hostname:  host,
+		Hostname:  hostname,
 		Message:   "Hello world",
 	}); err != nil {
 		log.Fatalf("Error writing event: %v", err)
@@ -139,6 +139,7 @@ func main() {
 	if err := viper.UnmarshalKey("restic", &rconf); err != nil {
 		log.Fatalf("Error unmarshalling restic config: %v", err)
 	}
+	rconf.Hostname = hostname
 
 	rconf.BackendOptions = map[string]string{
 		"GOOGLE_PROJECT_ID":              viper.GetString("restic.google-project-id"),
