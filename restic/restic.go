@@ -63,7 +63,6 @@ func (r *Restic) run(args ...string) (string, string, error) {
 
 	c.Env = append(c.Env, "RESTIC_REPOSITORY="+r.config.Repository)
 	c.Env = append(c.Env, "RESTIC_PASSWORD="+r.config.Password)
-	c.Env = append(c.Env, "RESTIC_HOSTNAME="+r.config.Hostname)
 	for k, v := range r.config.BackendOptions {
 		c.Env = append(c.Env, k+"="+v)
 	}
@@ -88,7 +87,7 @@ func (r *Restic) Version() (string, error) {
 
 // Snapshots returns the all restic snapshots. It does no parsing.
 func (r *Restic) Snapshots() (string, error) {
-	so, se, err := r.run("snapshots")
+	so, se, err := r.run("snapshots", "--host", r.config.Hostname)
 	if err != nil {
 		return "", fmt.Errorf("'restic snapshot' failed with error %v. stderr: %s", err, se)
 	}
