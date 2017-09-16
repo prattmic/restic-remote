@@ -9,10 +9,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"time"
 
 	"github.com/prattmic/restic-remote/api"
-	"github.com/prattmic/restic-remote/event"
 	"github.com/prattmic/restic-remote/restic"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -120,19 +118,15 @@ func main() {
 	if err := viper.UnmarshalKey("api", &aconf); err != nil {
 		log.Fatalf("Error unmarshalling API config: %v", err)
 	}
+	aconf.Hostname = hostname
 
 	a, err := api.New(context.Background(), aconf)
 	if err != nil {
 		log.Fatalf("Failed to create API: %v", err)
 	}
 
-	if err := a.WriteEvent(&event.Event{
-		Type:      event.ClientStarted,
-		Timestamp: time.Now(),
-		Hostname:  hostname,
-		Message:   "Hello world",
-	}); err != nil {
-		log.Fatalf("Error writing event: %v", err)
+	if err := a.ClientStarted(); err != nil {
+		log.Fatalf("Error writing ClientStarted event: %v", err)
 	}
 
 	var rconf restic.Config

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"time"
 
 	"github.com/prattmic/restic-remote/auth0"
 	"github.com/prattmic/restic-remote/event"
@@ -26,6 +27,9 @@ type Config struct {
 
 	// Root is the API root URL.
 	Root string `mapstructure:"root"`
+
+	// Hostname is the hostname to use for the event helper methods.
+	Hostname string
 }
 
 // API describes a configured API target.
@@ -34,6 +38,9 @@ type API struct {
 	//
 	// root is immutable.
 	root url.URL
+
+	// hostname is the hostname to use for the event helper methods.
+	hostname string
 
 	// client connects to the API with authentication.
 	client *http.Client
@@ -58,8 +65,9 @@ func New(ctx context.Context, conf Config) (*API, error) {
 	}
 
 	return &API{
-		root:   *u,
-		client: client,
+		root:     *u,
+		hostname: conf.Hostname,
+		client:   client,
 	}, nil
 }
 
@@ -98,4 +106,13 @@ func (a *API) WriteEvent(e *event.Event) error {
 	}
 
 	return fmt.Errorf("error response when writing event: %+v\n%s", r, string(b))
+}
+
+// ClientStarted write a ClientStarted event.
+func (a *API) ClientStarted() error {
+	return a.WriteEvent(&event.Event{
+		Type:      event.ClientStarted,
+		Timestamp: time.Now(),
+		Hostname:  a.hostname,
+	})
 }
