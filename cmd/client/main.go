@@ -2,10 +2,11 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
-	"log"
 	"os"
 
+	"github.com/prattmic/restic-remote/log"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
@@ -22,6 +23,7 @@ var (
 )
 
 func main() {
+	flag.Parse()
 	pflag.Parse()
 
 	if *version {
@@ -31,42 +33,46 @@ func main() {
 
 	readConfig()
 
+	log.Infof("restic-remote client started")
+
 	ctx := context.Background()
 
 	a, err := newAPI(ctx)
 	if err != nil {
-		log.Fatalf("Failed to create API: %v", err)
+		log.Exitf("Failed to create API: %v", err)
 	}
 
 	if err := a.ClientStarted(); err != nil {
-		log.Printf("Error writing ClientStarted event: %v", err)
+		log.Warningf("Error writing ClientStarted event: %v", err)
 	}
 
 	r, err := newRestic()
 	if err != nil {
-		log.Fatalf("Failed to create restic: %v", err)
+		log.Exitf("Failed to create restic: %v", err)
 	}
 
 	backup := viper.GetStringSlice("backup")
 	if len(backup) < 1 {
-		log.Fatalf("Nothing to back up!")
+		log.Exitf("Nothing to back up!")
 	}
 
+	log.Infof("Backing up %+v", backup)
+
 	if err := a.BackupStarted(backup); err != nil {
-		log.Printf("Error writing BackupStarted event: %v", err)
+		log.Warningf("Error writing BackupStarted event: %v", err)
 	}
 
 	so, se, err := r.Backup(backup)
 	message := fmt.Sprintf("stdout:\n%s\nstderr:\n%s", so, se)
-	log.Printf("restic backup: %s\n", message)
+	log.Infof("restic backup: %s\n", message)
 	if err != nil {
 		if err := a.BackupFailed(message); err != nil {
-			log.Printf("Error writing BackupFailed event: %v", err)
+			log.Warningf("Error writing BackupFailed event: %v", err)
 		}
-		log.Fatalf("Failed to backup: %v", err)
+		log.Exitf("Failed to backup: %v", err)
 	}
 
 	if err := a.BackupSucceeded(message); err != nil {
-		log.Printf("Error writing BackupSucceeded event: %v", err)
+		log.Warningf("Error writing BackupSucceeded event: %v", err)
 	}
 }

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/prattmic/restic-remote/api"
+	"github.com/prattmic/restic-remote/log"
 	"github.com/prattmic/restic-remote/restic"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -93,7 +93,7 @@ func configDir() (string, error) {
 func readConfig() {
 	cd, err := configDir()
 	if err != nil {
-		log.Printf("Unable to find config directory: %v", err)
+		log.Warningf("Unable to find config directory: %v", err)
 	} else {
 		viper.AddConfigPath(cd)
 	}
@@ -103,11 +103,11 @@ func readConfig() {
 	}
 
 	if err := viper.ReadInConfig(); err != nil {
-		log.Printf("Unable to read config: %v", err)
+		log.Warningf("Unable to read config: %v", err)
 	}
 
 	if viper.GetString("hostname") == "" {
-		log.Fatalf("hostname required")
+		log.Exitf("hostname required")
 	}
 }
 
