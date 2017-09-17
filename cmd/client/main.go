@@ -26,6 +26,10 @@ func main() {
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
+	// Trick glog into thinking we called flag.Parse.
+	// https://github.com/kubernetes/kubernetes/issues/17162
+	flag.CommandLine.Parse([]string{})
+
 	if *version {
 		fmt.Printf("%s\n", versionStr)
 		os.Exit(0)
