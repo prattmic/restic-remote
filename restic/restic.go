@@ -4,6 +4,7 @@ package restic
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
 )
 
@@ -61,6 +62,7 @@ func New(c Config) (*Restic, error) {
 func (r *Restic) run(args ...string) (string, string, error) {
 	c := exec.Command(r.config.Binary, args...)
 
+	c.Env = os.Environ()
 	c.Env = append(c.Env, "RESTIC_REPOSITORY="+r.config.Repository)
 	c.Env = append(c.Env, "RESTIC_PASSWORD="+r.config.Password)
 	for k, v := range r.config.BackendOptions {
