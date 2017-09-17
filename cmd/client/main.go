@@ -6,8 +6,6 @@ import (
 	"log"
 	"os"
 
-	"github.com/prattmic/restic-remote/api"
-	"github.com/prattmic/restic-remote/restic"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
@@ -33,18 +31,9 @@ func main() {
 
 	readConfig()
 
-	hostname := viper.GetString("hostname")
-	if hostname == "" {
-		log.Fatalf("hostname required")
-	}
+	ctx := context.Background()
 
-	var aconf api.Config
-	if err := viper.UnmarshalKey("api", &aconf); err != nil {
-		log.Fatalf("Error unmarshalling API config: %v", err)
-	}
-	aconf.Hostname = hostname
-
-	a, err := api.New(context.Background(), aconf)
+	a, err := newAPI(ctx)
 	if err != nil {
 		log.Fatalf("Failed to create API: %v", err)
 	}
@@ -53,17 +42,7 @@ func main() {
 		log.Printf("Error writing ClientStarted event: %v", err)
 	}
 
-	var rconf restic.Config
-	if err := viper.UnmarshalKey("restic", &rconf); err != nil {
-		log.Fatalf("Error unmarshalling restic config: %v", err)
-	}
-	rconf.Hostname = hostname
-	rconf.BackendOptions = map[string]string{
-		"GOOGLE_PROJECT_ID":              viper.GetString("restic.google-project-id"),
-		"GOOGLE_APPLICATION_CREDENTIALS": viper.GetString("restic.google-credentials"),
-	}
-
-	r, err := restic.New(rconf)
+	r, err := newRestic()
 	if err != nil {
 		log.Fatalf("Failed to create restic: %v", err)
 	}

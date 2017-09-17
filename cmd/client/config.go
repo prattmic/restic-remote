@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -9,6 +10,8 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/prattmic/restic-remote/api"
+	"github.com/prattmic/restic-remote/restic"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
@@ -102,4 +105,34 @@ func readConfig() {
 	if err := viper.ReadInConfig(); err != nil {
 		log.Printf("Unable to read config: %v", err)
 	}
+
+	if viper.GetString("hostname") == "" {
+		log.Fatalf("hostname required")
+	}
+}
+
+// newAPI creates an api.API from the viper config.
+func newAPI(ctx context.Context) (*api.API, error) {
+	var aconf api.Config
+	if err := viper.UnmarshalKey("api", &aconf); err != nil {
+		return nil, fmt.Errorf("error unmarshalling API config: %v", err)
+	}
+	aconf.Hostname = viper.GetString("hostname")
+
+	return api.New(ctx, aconf)
+}
+
+// newRestic creates a restic.Restic from the viper config.
+func newRestic() (*restic.Restic, error) {
+	var rconf restic.Config
+	if err := viper.UnmarshalKey("restic", &rconf); err != nil {
+		return nil, fmt.Errorf("error unmarshalling restic config: %v", err)
+	}
+	rconf.Hostname = viper.GetString("hostname")
+	rconf.BackendOptions = map[string]string{
+		"GOOGLE_PROJECT_ID":              viper.GetString("restic.google-project-id"),
+		"GOOGLE_APPLICATION_CREDENTIALS": viper.GetString("restic.google-credentials"),
+	}
+
+	return restic.New(rconf)
 }
