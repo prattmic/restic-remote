@@ -15,8 +15,11 @@ const (
 	// BackupStarted indicates that a backup has begun.
 	BackupStarted Type = "backup_started"
 
-	// BackupComplete indicates that a backup is complete.
-	BackupComplete Type = "backup_complete"
+	// BackupSucceeded indicates that a backup completed successfully.
+	BackupSucceeded Type = "backup_succeeded"
+
+	// BackupFailed indicates that a backup completed unsuccessfully.
+	BackupFailed Type = "backup_failed"
 )
 
 // Event describes a single event.

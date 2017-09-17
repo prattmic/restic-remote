@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/prattmic/restic-remote/auth0"
@@ -108,11 +109,41 @@ func (a *API) WriteEvent(e *event.Event) error {
 	return fmt.Errorf("error response when writing event: %+v\n%s", r, string(b))
 }
 
-// ClientStarted write a ClientStarted event.
+// ClientStarted writes a ClientStarted event.
 func (a *API) ClientStarted() error {
 	return a.WriteEvent(&event.Event{
 		Type:      event.ClientStarted,
 		Timestamp: time.Now(),
 		Hostname:  a.hostname,
+	})
+}
+
+// BackupStarted writes a BackupStarted event for dirs.
+func (a *API) BackupStarted(dirs []string) error {
+	return a.WriteEvent(&event.Event{
+		Type:      event.BackupStarted,
+		Timestamp: time.Now(),
+		Hostname:  a.hostname,
+		Message:   strings.Join(dirs, "\n"),
+	})
+}
+
+// BackupSucceeded writes a BackupSucceeded event.
+func (a *API) BackupSucceeded(message string) error {
+	return a.WriteEvent(&event.Event{
+		Type:      event.BackupSucceeded,
+		Timestamp: time.Now(),
+		Hostname:  a.hostname,
+		Message:   message,
+	})
+}
+
+// BackupFailed writes a BackupFailed event.
+func (a *API) BackupFailed(message string) error {
+	return a.WriteEvent(&event.Event{
+		Type:      event.BackupFailed,
+		Timestamp: time.Now(),
+		Hostname:  a.hostname,
+		Message:   message,
 	})
 }

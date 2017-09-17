@@ -126,7 +126,7 @@ func main() {
 	}
 
 	if err := a.ClientStarted(); err != nil {
-		log.Fatalf("Error writing ClientStarted event: %v", err)
+		log.Printf("Error writing ClientStarted event: %v", err)
 	}
 
 	var rconf restic.Config
@@ -134,7 +134,6 @@ func main() {
 		log.Fatalf("Error unmarshalling restic config: %v", err)
 	}
 	rconf.Hostname = hostname
-
 	rconf.BackendOptions = map[string]string{
 		"GOOGLE_PROJECT_ID":              viper.GetString("restic.google-project-id"),
 		"GOOGLE_APPLICATION_CREDENTIALS": viper.GetString("restic.google-credentials"),
@@ -150,9 +149,21 @@ func main() {
 		log.Fatalf("Nothing to back up!")
 	}
 
+	if err := a.BackupStarted(backup); err != nil {
+		log.Printf("Error writing BackupStarted event: %v", err)
+	}
+
 	so, se, err := r.Backup(backup)
-	log.Printf("restic backup: stdout:\n%s\nstderr:\n%s", so, se)
+	message := fmt.Sprintf("stdout:\n%s\nstderr:\n%s", so, se)
+	log.Printf("restic backup: %s\n", message)
 	if err != nil {
+		if err := a.BackupFailed(message); err != nil {
+			log.Printf("Error writing BackupFailed event: %v", err)
+		}
 		log.Fatalf("Failed to backup: %v", err)
+	}
+
+	if err := a.BackupSucceeded(message); err != nil {
+		log.Printf("Error writing BackupSucceeded event: %v", err)
 	}
 }
