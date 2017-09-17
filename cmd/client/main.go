@@ -16,9 +16,15 @@ import (
 	"github.com/spf13/viper"
 )
 
+// versionStr is the current version. It is overridden by the linker.
+var versionStr = "<unknown>"
+
 var (
 	// config allows overriding the config file location.
 	config = pflag.String("config", "", "Path to config file")
+
+	// version prints the current version then exits.
+	version = pflag.Bool("version", false, "Print version and exit")
 )
 
 // boundStringFlag defines a new flag that is bound to a viper key.
@@ -93,6 +99,11 @@ func configDir() (string, error) {
 
 func main() {
 	pflag.Parse()
+
+	if *version {
+		fmt.Printf("%s\n", versionStr)
+		os.Exit(0)
+	}
 
 	cd, err := configDir()
 	if err != nil {
