@@ -23,7 +23,7 @@ var (
 )
 
 func main() {
-	flag.Parse()
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
 	if *version {
