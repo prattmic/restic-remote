@@ -7,10 +7,6 @@ import (
 var log *eventlog.Log
 
 func init() {
-	if err := eventlog.InstallAsEventCreate(logTag, eventlog.Info|eventlog.Warning|eventlog.Error); err != nil {
-		Errorf("Failed to install event log: %+v", err)
-	}
-
 	var err error
 	log, err = eventlog.Open(logTag)
 	if err != nil {
