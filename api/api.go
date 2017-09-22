@@ -19,8 +19,8 @@ import (
 
 // API endpoints.
 const (
-	eventEndpoint  = "/api/v1/event"
 	binaryEndpoint = "/api/v1/binary"
+	eventEndpoint  = "/api/v1/event"
 )
 
 type Config struct {
@@ -78,7 +78,7 @@ func New(ctx context.Context, conf Config) (*API, error) {
 // N.B. u.User must not be modified, as it is not deep copied.
 func (a *API) url(e string) url.URL {
 	u := a.root
-	u.Path = path.Join(u.Path, eventEndpoint)
+	u.Path = path.Join(u.Path, e)
 	return u
 }
 
