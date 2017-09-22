@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/prattmic/restic-remote/api"
 	"github.com/prattmic/restic-remote/log"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -21,6 +22,24 @@ var (
 	// version prints the current version then exits.
 	version = pflag.Bool("version", false, "Print version and exit")
 )
+
+func updateCheck(a *api.API) {
+	restic, err := a.GetBinary("restic")
+	if err != nil {
+		log.Errorf("Error getting restic binary info: %v", err)
+		return
+	}
+
+	log.Infof("restic: %+v", restic)
+
+	remote, err := a.GetBinary("restic-remote")
+	if err != nil {
+		log.Errorf("Error getting restic-remote binary info: %v", err)
+		return
+	}
+
+	log.Infof("restic-remote: %+v", remote)
+}
 
 func main() {
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
@@ -49,6 +68,8 @@ func main() {
 	if err := a.ClientStarted(); err != nil {
 		log.Warningf("Error writing ClientStarted event: %v", err)
 	}
+
+	updateCheck(a)
 
 	r, err := newRestic()
 	if err != nil {
