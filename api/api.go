@@ -19,7 +19,8 @@ import (
 
 // API endpoints.
 const (
-	eventEndpoint = "/api/v1/event"
+	eventEndpoint  = "/api/v1/event"
+	binaryEndpoint = "/api/v1/binary"
 )
 
 type Config struct {
@@ -81,14 +82,13 @@ func (a *API) url(e string) url.URL {
 	return u
 }
 
-// WriteEvent sends an event to the server.
-func (a *API) WriteEvent(e *event.Event) error {
+// postJSON posts JSON object j to u.
+func (a *API) postJSON(u url.URL, j interface{}) error {
 	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(e); err != nil {
-		return fmt.Errorf("error encoding event %+v: %v", e, err)
+	if err := json.NewEncoder(&buf).Encode(j); err != nil {
+		return fmt.Errorf("error encoding %+v: %v", j, err)
 	}
 
-	u := a.url(eventEndpoint)
 	r, err := a.client.Post(u.String(), "application/json", &buf)
 	if err != nil {
 		return fmt.Errorf("error making request: %v", err)
@@ -106,7 +106,15 @@ func (a *API) WriteEvent(e *event.Event) error {
 		return fmt.Errorf("error reading body of failure response %+v: %v", r, err)
 	}
 
-	return fmt.Errorf("error response when writing event: %+v\n%s", r, string(b))
+	return fmt.Errorf("error response when writing JSON: %+v\n%s", r, string(b))
+}
+
+// WriteEvent sends an event to the server.
+func (a *API) WriteEvent(e *event.Event) error {
+	if err := a.postJSON(a.url(eventEndpoint), e); err != nil {
+		return fmt.Errorf("error writing event %+v: %v", e, err)
+	}
+	return nil
 }
 
 // ClientStarted writes a ClientStarted event.
