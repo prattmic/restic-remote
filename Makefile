@@ -1,8 +1,13 @@
-all: client
+all: client client.exe
 
 VERSION=$(shell git describe --long --tags --dirty --always)
 
-client:
-	go build -ldflags='-X "main.versionStr=$(VERSION)"' github.com/prattmic/restic-remote/cmd/client
+LDFLAGS=-X "main.versionStr=$(VERSION)"
 
-.PHONY: all client
+client:
+	go build -ldflags='$(LDFLAGS)' github.com/prattmic/restic-remote/cmd/client
+
+client.exe:
+	GOOS=windows go build -ldflags='$(LDFLAGS)' github.com/prattmic/restic-remote/cmd/client
+
+.PHONY: all client client.exe
