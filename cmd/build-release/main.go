@@ -20,7 +20,7 @@ func createEmptyDir(name string) error {
 	return os.Mkdir(name, 0755)
 }
 
-func buildRestic(root, release string) error {
+func buildRestic(root, release string) (string, error) {
 	bin := filepath.Join(release, "restic")
 	glog.Infof("Building %s", bin)
 
@@ -29,8 +29,17 @@ func buildRestic(root, release string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("error building restic: %v", err)
+		return "", fmt.Errorf("error building restic: %v", err)
 	}
+
+	// Find the version.
+	glog.Infof("Determing restic version...")
+	cmd = exec.Command(bin, "version")
+	b, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("error finding version: %v", err)
+	}
+	version := string(b)
 
 	bin = filepath.Join(release, "restic.exe")
 	glog.Infof("Building %s", bin)
@@ -40,24 +49,22 @@ func buildRestic(root, release string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("error building restic.exe: %v", err)
+		return "", fmt.Errorf("error building restic.exe: %v", err)
 	}
 
-	return nil
+	return version, nil
 }
 
-func buildClient(root, release string) error {
+func buildClient(root, release string) (string, error) {
 	glog.Infof("Determing client version...")
 
 	cmd := exec.Command("git", "describe", "--long", "--tags", "--dirty", "--always")
 	b, err := cmd.Output()
 	if err != nil {
-		return fmt.Errorf("error finding version: %v", err)
+		return "", fmt.Errorf("error finding version: %v", err)
 	}
 
 	version := strings.Trim(string(b), "\r\n")
-	glog.Infof("Client version: %s", version)
-
 	ldflag := fmt.Sprintf(`-X "main.versionStr=%s"`, version)
 
 	bin := filepath.Join(release, "client")
@@ -67,7 +74,7 @@ func buildClient(root, release string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("error building client: %v", err)
+		return "", fmt.Errorf("error building client: %v", err)
 	}
 
 	bin = filepath.Join(release, "client.exe")
@@ -79,10 +86,10 @@ func buildClient(root, release string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("error building client.exe: %v", err)
+		return "", fmt.Errorf("error building client.exe: %v", err)
 	}
 
-	return nil
+	return version, nil
 }
 
 func main() {
@@ -100,11 +107,16 @@ func main() {
 		glog.Exitf("Unable to create release directory: %v", err)
 	}
 
-	if err := buildRestic(root, release); err != nil {
+	rver, err := buildRestic(root, release)
+	if err != nil {
 		glog.Exitf("Unable to build restic: %v", err)
 	}
 
-	if err := buildClient(root, release); err != nil {
+	cver, err := buildClient(root, release)
+	if err != nil {
 		glog.Exitf("Unable to build client: %v", err)
 	}
+
+	glog.Infof("Built restic version: %s", rver)
+	glog.Infof("Built client version: %s", cver)
 }
