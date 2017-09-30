@@ -3,10 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/golang/glog"
 )
@@ -92,6 +94,18 @@ func buildClient(root, release string) (string, error) {
 	return version, nil
 }
 
+func stampVersion(release string) (string, error) {
+	version := time.Now().UTC().Format(time.RFC3339)
+	glog.Infof("Release version: %s", version)
+
+	f := filepath.Join(release, "VERSION")
+	if err := ioutil.WriteFile(f, []byte(version), 0644); err != nil {
+		return "", fmt.Errorf("error writing VERSION file: %v", err)
+	}
+
+	return version, nil
+}
+
 func main() {
 	flag.Set("alsologtostderr", "true")
 	flag.Parse()
@@ -119,4 +133,9 @@ func main() {
 
 	glog.Infof("Built restic version: %s", rver)
 	glog.Infof("Built client version: %s", cver)
+
+	_, err = stampVersion(release)
+	if err != nil {
+		glog.Exitf("Unable to stamp version: %v", err)
+	}
 }
