@@ -16,8 +16,8 @@ import (
 var versionStr = "<unknown>"
 
 var (
-	// config allows overriding the config file location.
-	config = pflag.String("config", "", "Path to config file")
+	// configPath allows overriding the config file location.
+	configPath = pflag.String("config", "", "Path to config file")
 
 	// version prints the current version then exits.
 	version = pflag.Bool("version", false, "Print version and exit")

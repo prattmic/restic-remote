@@ -3,13 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/user"
-	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/prattmic/restic-remote/api"
+	"github.com/prattmic/restic-remote/config"
 	"github.com/prattmic/restic-remote/log"
 	"github.com/prattmic/restic-remote/restic"
 	"github.com/spf13/pflag"
@@ -56,50 +53,17 @@ func init() {
 // dir when our configuration is stored.
 const configFolderName = "restic-remote"
 
-// configDir returns the default configuration directory.
-func configDir() (string, error) {
-	if runtime.GOOS == "windows" {
-		appData, ok := os.LookupEnv("APPDATA")
-		if !ok {
-			return "", fmt.Errorf("APPDATA not set")
-		}
-
-		return filepath.Join(appData, configFolderName), nil
-	}
-
-	xdg, ok := os.LookupEnv("XDG_CONFIG_HOME")
-	if ok {
-		return filepath.Join(xdg, configFolderName), nil
-	}
-
-	home, ok := os.LookupEnv("HOME")
-	if ok {
-		return filepath.Join(home, ".config", configFolderName), nil
-	}
-
-	u, err := user.Current()
-	if err != nil {
-		return "", fmt.Errorf("cannot determine current user: %v", err)
-	}
-
-	if u.HomeDir != "" {
-		return filepath.Join(u.HomeDir, ".config", configFolderName), nil
-	}
-
-	return "", fmt.Errorf("unable to find config directory")
-}
-
 // readConfig reads the global viper config.
 func readConfig() {
-	cd, err := configDir()
+	cd, err := config.Dir(configFolderName)
 	if err != nil {
 		log.Warningf("Unable to find config directory: %v", err)
 	} else {
 		viper.AddConfigPath(cd)
 	}
 
-	if *config != "" {
-		viper.SetConfigFile(*config)
+	if *configPath != "" {
+		viper.SetConfigFile(*configPath)
 	}
 
 	if err := viper.ReadInConfig(); err != nil {
