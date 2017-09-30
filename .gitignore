@@ -6,3 +6,5 @@ server/app.yaml
 /build-release
 
 /upload
+
+/release
