@@ -8,12 +8,39 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"syscall"
 
 	"github.com/golang/glog"
 )
 
-func gsCopy(dst, src string) error {
-	c := []string{"gsutil", "cp", "-n", src, dst}
+func checkNotExist(dir string) error {
+	c := []string{"gsutil", "ls", dir}
+	glog.Infof("Running command: %v", c)
+
+	cmd := exec.Command(c[0], c[1:]...)
+	b, err := cmd.CombinedOutput()
+	if err == nil {
+		return fmt.Errorf("%s exists; output: %s", dir, string(b))
+	}
+	ee, ok := err.(*exec.ExitError)
+	if !ok {
+		return fmt.Errorf("err %v is not ExitError; output: %s", err, string(b))
+	}
+	ws, ok := ee.Sys().(syscall.WaitStatus)
+	if !ok {
+		return fmt.Errorf("ee %v does not contain WaitStatus; output: %s", ee, string(b))
+	}
+	if ws.ExitStatus() != 1 {
+		return fmt.Errorf("unexpected exit code %+v; output: %s", ws, string(b))
+	}
+	// Exit code 1 means directory doesn't exist.
+	return nil
+}
+
+func gsCopy(dst string, src ...string) error {
+	c := []string{"gsutil", "cp"}
+	c = append(c, src...)
+	c = append(c, dst)
 	glog.Infof("Running command: %v", c)
 
 	cmd := exec.Command(c[0], c[1:]...)
@@ -44,25 +71,19 @@ func deployRelease(release string) error {
 	destDir.Path = path.Join(destDir.Path, version)
 	glog.Infof("Deploying version: %s to %s", version, destDir)
 
-	fn := func(bin string) error {
-		src := filepath.Join(release, bin)
-		dst := *destDir
-		dst.Path = path.Join(dst.Path, bin)
-		glog.Infof("Copying %s to %s", src, dst)
-		return gsCopy(dst.String(), src)
+	if err := checkNotExist(destDir.String()); err != nil {
+		return fmt.Errorf("%s not empty: %v", destDir, err)
 	}
 
-	if err := fn("restic"); err != nil {
-		return fmt.Errorf("error copying restic: %v", err)
+	srcs := []string{
+		filepath.Join(release, "restic"),
+		filepath.Join(release, "restic.exe"),
+		filepath.Join(release, "client"),
+		filepath.Join(release, "client.exe"),
 	}
-	if err := fn("restic.exe"); err != nil {
-		return fmt.Errorf("error copying restic: %v", err)
-	}
-	if err := fn("client"); err != nil {
-		return fmt.Errorf("error copying restic: %v", err)
-	}
-	if err := fn("client.exe"); err != nil {
-		return fmt.Errorf("error copying restic: %v", err)
+
+	if err := gsCopy(destDir.String(), srcs...); err != nil {
+		return fmt.Errorf("error copying: %v", err)
 	}
 
 	return nil

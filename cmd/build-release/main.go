@@ -28,13 +28,13 @@ func main() {
 
 	if *build {
 		if err := buildRelease(root, release); err != nil {
-			glog.Errorf("Unable to build release: %v", err)
+			glog.Exitf("Unable to build release: %v", err)
 		}
 	}
 
 	if *deploy {
 		if err := deployRelease(release); err != nil {
-			glog.Errorf("Unable to deploy release: %v", err)
+			glog.Exitf("Unable to deploy release: %v", err)
 		}
 	}
 }
