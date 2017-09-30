@@ -1,0 +1,3 @@
+[submodule "tools/restic"]
+	path = tools/restic
+	url = https://github.com/prattmic/restic
