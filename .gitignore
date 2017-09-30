@@ -3,4 +3,6 @@ server/app.yaml
 /client
 /client.exe
 
+/build-release
+
 /upload
