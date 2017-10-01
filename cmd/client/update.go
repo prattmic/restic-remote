@@ -45,6 +45,29 @@ func updateCheck(a *api.API, r *restic.Restic) error {
 	return performUpdate(release, updateRestic, updateClient)
 }
 
+func download(ctx context.Context, dst string, bkt *storage.BucketHandle, path string) error {
+	log.Infof("Downloading %s to %s", path, dst)
+
+	f, err := os.OpenFile(dst, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0755)
+	if err != nil {
+		return fmt.Errorf("error opening destination: %v", err)
+	}
+	defer f.Close()
+
+	obj := bkt.Object(path)
+	r, err := obj.NewReader(ctx)
+	if err != nil {
+		return fmt.Errorf("error opening object %s: %v", path, err)
+	}
+	defer r.Close()
+
+	if _, err := io.Copy(f, r); err != nil {
+		return fmt.Errorf("error downloading object: %v", err)
+	}
+
+	return nil
+}
+
 func performUpdate(release *api.Release, updateRestic, updateClient bool) error {
 	dir, err := ioutil.TempDir("", "restic-remote-update")
 	if err != nil {
@@ -94,29 +117,6 @@ func performUpdate(release *api.Release, updateRestic, updateClient bool) error 
 		if err := download(ctx, tmpClient, bkt, srcClient); err != nil {
 			return fmt.Errorf("error downloading restic: %v", err)
 		}
-	}
-
-	return nil
-}
-
-func download(ctx context.Context, dst string, bkt *storage.BucketHandle, path string) error {
-	log.Infof("Downloading %s to %s", path, dst)
-
-	f, err := os.OpenFile(dst, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0755)
-	if err != nil {
-		return fmt.Errorf("error opening destination: %v", err)
-	}
-	defer f.Close()
-
-	obj := bkt.Object(path)
-	r, err := obj.NewReader(ctx)
-	if err != nil {
-		return fmt.Errorf("error opening object %s: %v", path, err)
-	}
-	defer r.Close()
-
-	if _, err := io.Copy(f, r); err != nil {
-		return fmt.Errorf("error downloading object: %v", err)
 	}
 
 	return nil
