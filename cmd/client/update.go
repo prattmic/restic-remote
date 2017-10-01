@@ -107,9 +107,13 @@ func tempExecutable(dir, prefix string) (*os.File, error) {
 		return f, fmt.Errorf("error creating tmpfile: %v", err)
 	}
 
-	if err := f.Chmod(0755); err != nil {
-		f.Close()
-		return nil, fmt.Errorf("error setting permissions: %v", err)
+	// Chmod doesn't work on Windows, but files are executable by default
+	// anyways.
+	if runtime.GOOS != "windows" {
+		if err := f.Chmod(0755); err != nil {
+			f.Close()
+			return nil, fmt.Errorf("error setting permissions: %v", err)
+		}
 	}
 
 	return f, nil
