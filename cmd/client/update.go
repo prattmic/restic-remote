@@ -6,15 +6,14 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"net/url"
 	"path"
 	"path/filepath"
 	"runtime"
-	"strings"
 
 	"cloud.google.com/go/storage"
 	"github.com/prattmic/restic-remote/api"
+	"github.com/prattmic/restic-remote/binver"
 	"github.com/prattmic/restic-remote/log"
 	"github.com/prattmic/restic-remote/restic"
 	"github.com/spf13/viper"
@@ -150,25 +149,12 @@ func performUpdate(release *api.Release, updateRestic, updateClient bool) error 
 	return checkAndInstall(release, tmpRestic, tmpClient)
 }
 
-// TODO: dedup
-func clientVersion(bin string) (string, error) {
-	cmd := exec.Command(bin, "--version")
-	b, err := cmd.Output()
-	return strings.Trim(string(b), "\r\n"), err
-}
-
-func resticVersion(bin string) (string, error) {
-	cmd := exec.Command(bin, "version")
-	b, err := cmd.Output()
-	return strings.Trim(string(b), "\r\n"), err
-}
-
 func checkAndInstall(release *api.Release, tmpRestic, tmpClient string) (err error) {
 	// Make sure we got working binaries with the correct versions.
 
 	var dstRestic string
 	if tmpRestic != "" {
-		version, err := resticVersion(tmpRestic)
+		version, err := binver.Restic(tmpRestic)
 		if err != nil {
 			return fmt.Errorf("error getting version of new restic %s: %v", tmpRestic, err)
 		}
@@ -180,7 +166,7 @@ func checkAndInstall(release *api.Release, tmpRestic, tmpClient string) (err err
 		dstRestic = viper.GetString("restic.binary")
 	}
 	if tmpClient != "" {
-		version, err := clientVersion(tmpClient)
+		version, err := binver.Client(tmpClient)
 		if err != nil {
 			return fmt.Errorf("error getting version of new client %s: %v", tmpClient, err)
 		}

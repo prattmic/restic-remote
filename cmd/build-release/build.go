@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/prattmic/restic-remote/binver"
 )
 
 func createEmptyDir(name string) error {
@@ -35,7 +36,7 @@ func buildRestic(root, release string) (string, error) {
 
 	// Find the version.
 	glog.Infof("Determing restic version...")
-	version, err := resticVersion(bin)
+	version, err := binver.Restic(bin)
 	if err != nil {
 		return "", fmt.Errorf("error finding version: %v", err)
 	}

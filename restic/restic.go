@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
+
+	"github.com/prattmic/restic-remote/binver"
 )
 
 // Config contains the configuration for restic.
@@ -80,12 +81,7 @@ func (r *Restic) run(args ...string) (string, string, error) {
 
 // Version returns the complete restic version string.
 func (r *Restic) Version() (string, error) {
-	so, se, err := r.run("version")
-	if err != nil {
-		return "", fmt.Errorf("'restic version' failed with error %v. stderr: %s", err, se)
-	}
-
-	return strings.Trim(so, "\r\n"), nil
+	return binver.Restic(r.config.Binary)
 }
 
 // Snapshots returns the all restic snapshots. It does no parsing.
