@@ -35,11 +35,17 @@ type errorResponse struct {
 	Message string `json:"message"`
 }
 
+// MethodScopes is a map from HTTP request method to the scopes required for
+// that methods. Missing methods are refused access.
+type MethodScopes map[string][]string
+
 // ValidateWithScope returns an http.Handler which validates that all requests
 // have a valid access token with the specified scopes before calling into h.
 //
+// No scopes are checked if scopes is nil.
+//
 // Invalid requests receive a 401 response.
-func (v *Validator) ValidateWithScopes(scopes []string, h http.Handler) http.Handler {
+func (v *Validator) ValidateWithScopes(scopes MethodScopes, h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t, err := v.v.ValidateRequest(r)
 		if err != nil {
@@ -53,10 +59,10 @@ func (v *Validator) ValidateWithScopes(scopes []string, h http.Handler) http.Han
 			return
 		}
 
-		if len(scopes) > 0 {
-			// Ensure the token has the correct scopes.
-			if err := v.checkScopes(r, t, scopes); err != nil {
-				log.Printf("Scopes from %+v not ok: %v", t, err)
+		if scopes != nil {
+			mscopes, ok := scopes[r.Method]
+			if !ok {
+				log.Printf("Method %s missing from scopes %+v", r.Method, scopes)
 
 				w.WriteHeader(http.StatusUnauthorized)
 				json.NewEncoder(w).Encode(errorResponse{
@@ -64,6 +70,20 @@ func (v *Validator) ValidateWithScopes(scopes []string, h http.Handler) http.Han
 				})
 
 				return
+			}
+
+			if len(mscopes) > 0 {
+				// Ensure the token has the correct scopes.
+				if err := v.checkScopes(r, t, mscopes); err != nil {
+					log.Printf("Scopes from %+v not ok want %v: %v", t, mscopes, err)
+
+					w.WriteHeader(http.StatusUnauthorized)
+					json.NewEncoder(w).Encode(errorResponse{
+						Message: "Invalid scopes.",
+					})
+
+					return
+				}
 			}
 		}
 

@@ -28,8 +28,17 @@ func init() {
 	v := auth0.NewValidator(auth0JWKS, auth0Issuer, []string{auth0Audience})
 
 	http.Handle("/", v.ValidateWithScopes(nil, http.HandlerFunc(root)))
-	http.Handle("/api/v1/binary", v.ValidateWithScopes(nil, http.HandlerFunc(binary)))
-	http.Handle("/api/v1/event", v.ValidateWithScopes([]string{"write:events"}, http.HandlerFunc(writeEvent)))
+
+	binaryScopes := auth0.MethodScopes{
+		"GET":  []string{"read:binary"},
+		"POST": []string{"write:binary"},
+	}
+	http.Handle("/api/v1/binary", v.ValidateWithScopes(binaryScopes, http.HandlerFunc(binary)))
+
+	eventScopes := auth0.MethodScopes{
+		"POST": []string{"write:events"},
+	}
+	http.Handle("/api/v1/event", v.ValidateWithScopes(eventScopes, http.HandlerFunc(writeEvent)))
 }
 
 func root(w http.ResponseWriter, r *http.Request) {

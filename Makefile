@@ -1,4 +1,4 @@
-all: client client.exe
+all: client
 
 VERSION=$(shell git describe --long --tags --dirty --always)
 
