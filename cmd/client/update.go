@@ -6,7 +6,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"net/url"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -15,12 +14,27 @@ import (
 	"github.com/prattmic/restic-remote/api"
 	"github.com/prattmic/restic-remote/binver"
 	"github.com/prattmic/restic-remote/log"
-	"github.com/prattmic/restic-remote/restic"
 	"github.com/spf13/viper"
 	"google.golang.org/api/option"
 )
 
-func updateCheck(a *api.API, r *restic.Restic) error {
+type updateOpts struct {
+	release *api.Release
+
+	updateRestic bool
+	updateClient bool
+
+	resticPath string
+	clientPath string
+
+	googleCredsFile string
+
+	// binaryBucket is the GCS bucket containing the binaries referenced in
+	// release. This is just the raw bucket name, no "gs://".
+	binaryBucket string
+}
+
+func updateCheck(ctx context.Context, a *api.API) error {
 	release, err := a.GetRelease()
 	if err != nil {
 		return fmt.Errorf("error getting current release: %v", err)
@@ -28,7 +42,31 @@ func updateCheck(a *api.API, r *restic.Restic) error {
 
 	log.Infof("Latest release: %+v", release)
 
-	rver, err := r.Version()
+	opts := updateOpts{
+		release: release,
+	}
+
+	opts.googleCredsFile = viper.GetString("restic.google-credentials")  // TODO: not restic.
+	if opts.googleCredsFile == "" {
+		return fmt.Errorf("no Google credentials")
+	}
+
+	opts.binaryBucket = viper.GetString("google.binary-bucket")
+	if opts.binaryBucket == "" {
+		return fmt.Errorf("binary bucket not configured")
+	}
+
+	opts.resticPath = viper.GetString("restic.binary")
+	if opts.resticPath == "" {
+		return fmt.Errorf("restic path unknown")
+	}
+
+	opts.clientPath, err = os.Executable()
+	if err != nil {
+		return fmt.Errorf("error getting client path: %v", err)
+	}
+
+	rver, err := binver.Restic(opts.resticPath)
 	if err != nil {
 		return fmt.Errorf("error getting restic version: %v", err)
 	}
@@ -36,14 +74,14 @@ func updateCheck(a *api.API, r *restic.Restic) error {
 	log.Infof("Current restic version: %s", rver)
 	log.Infof("Current client version: %s", versionStr)
 
-	updateRestic := rver != release.ResticVersion
-	updateClient := versionStr != release.ClientVersion
-	if !updateRestic && !updateClient {
+	opts.updateRestic = rver != release.ResticVersion
+	opts.updateClient = versionStr != release.ClientVersion
+	if !opts.updateRestic && !opts.updateClient {
 		log.Infof("No updates available")
 		return nil
 	}
 
-	return performUpdate(release, updateRestic, updateClient)
+	return performUpdate(ctx, opts)
 }
 
 func download(ctx context.Context, dst *os.File, bkt *storage.BucketHandle, path string) error {
@@ -77,18 +115,34 @@ func tempExecutable(dir, prefix string) (*os.File, error) {
 	return f, nil
 }
 
-func performUpdate(release *api.Release, updateRestic, updateClient bool) error {
-	bucketURL := viper.GetString("google.binary-bucket")
-	if bucketURL == "" {
-		return fmt.Errorf("Binary bucket not configured")
-	}
+// downloadToTmp downloads the new release of the existing binary bin to a
+// temporary file in the same folder.
+//
+// Returns the name of the file.
+func downloadToTmp(ctx context.Context, bkt *storage.BucketHandle, release *api.Release, bin string) (string, error) {
+	// Name of the binary to grab from the bucket. Differentiates between
+	// restic/client and linux/windows (exe).
+	base := filepath.Base(bin)
+	dir := filepath.Dir(bin)
 
-	u, err := url.Parse(bucketURL)
+	// Create tmp file in the same folder so we won't accidentally
+	// try to do a cross-mount rename later.
+	f, err := tempExecutable(dir, "tmp")
 	if err != nil {
-		return fmt.Errorf("malformed bucket %s", bucketURL)
+		return "", fmt.Errorf("error creating tmpfile: %v", err)
 	}
-	bucket := u.Host
+	defer f.Close()
+	name := f.Name()
 
+	src := path.Join(release.Path, base)
+	if err := download(ctx, f, bkt, src); err != nil {
+		return "", fmt.Errorf("error downloading %s: %v", src, err)
+	}
+
+	return name, nil
+}
+
+func performUpdate(ctx context.Context, opts updateOpts) error {
 	resticBin := "restic"
 	clientBin := "client"
 	if runtime.GOOS == "windows" {
@@ -96,112 +150,67 @@ func performUpdate(release *api.Release, updateRestic, updateClient bool) error 
 		clientBin += ".exe"
 	}
 
-	ctx := context.Background()
-	creds := viper.GetString("restic.google-credentials")  // TODO: not restic.
-	c, err := storage.NewClient(ctx, option.WithCredentialsFile(creds))
+	c, err := storage.NewClient(ctx, option.WithCredentialsFile(opts.googleCredsFile))
 	if err != nil {
 		return fmt.Errorf("error creating storage client: %v", err)
 	}
 
-	bkt := c.Bucket(bucket)
+	bkt := c.Bucket(opts.binaryBucket)
 
 	var tmpRestic, tmpClient string
-	if updateRestic {
-		dstRestic := viper.GetString("restic.binary")
-
-		// Create new file in the same folder so we won't accidentally
-		// try to do a cross-mount rename later.
-		f, err := tempExecutable(filepath.Dir(dstRestic), "restic.new")
+	if opts.updateRestic {
+		tmpRestic, err = downloadToTmp(ctx, bkt, opts.release, opts.resticPath)
 		if err != nil {
-			return fmt.Errorf("error creating restic tmpfile: %v", err)
+			return fmt.Errorf("error downloading restic: %v", err)
 		}
-		tmpRestic = f.Name()
 		defer os.Remove(tmpRestic)
-
-		srcRestic := path.Join(release.Path, resticBin)
-		err = download(ctx, f, bkt, srcRestic)
-		f.Close()
-		if err != nil {
-			return fmt.Errorf("error downloading restic: %v", err)
-		}
 	}
-	if updateClient {
-		dstClient, err := os.Executable()
+	if opts.updateClient {
+		tmpClient, err = downloadToTmp(ctx, bkt, opts.release, opts.clientPath)
 		if err != nil {
-			return fmt.Errorf("error finding running executable: %v", err)
+			return fmt.Errorf("error downloading client: %v", err)
 		}
-
-		f, err := tempExecutable(filepath.Dir(dstClient), "client.new")
-		if err != nil {
-			return fmt.Errorf("error creating client tmpfile: %v", err)
-		}
-		tmpClient = f.Name()
 		defer os.Remove(tmpClient)
-
-		srcClient := path.Join(release.Path, clientBin)
-		err = download(ctx, f, bkt, srcClient)
-		f.Close()
-		if err != nil {
-			return fmt.Errorf("error downloading restic: %v", err)
-		}
 	}
 
-	return checkAndInstall(release, tmpRestic, tmpClient)
+	return checkAndInstall(opts, tmpRestic, tmpClient)
 }
 
-func checkAndInstall(release *api.Release, tmpRestic, tmpClient string) (err error) {
+func checkAndInstall(opts updateOpts, tmpRestic, tmpClient string) (err error) {
 	// Make sure we got working binaries with the correct versions.
 
-	var dstRestic string
-	if tmpRestic != "" {
+	if opts.updateRestic {
 		version, err := binver.Restic(tmpRestic)
 		if err != nil {
 			return fmt.Errorf("error getting version of new restic %s: %v", tmpRestic, err)
 		}
-		if version != release.ResticVersion {
-			return fmt.Errorf("restic version mismatch got %q want %q", version, release.ResticVersion)
+		if version != opts.release.ResticVersion {
+			return fmt.Errorf("restic version mismatch got %q want %q", version, opts.release.ResticVersion)
 		}
-
-		// TODO: pass this in?
-		dstRestic = viper.GetString("restic.binary")
 	}
-	if tmpClient != "" {
+	if opts.updateClient {
 		version, err := binver.Client(tmpClient)
 		if err != nil {
 			return fmt.Errorf("error getting version of new client %s: %v", tmpClient, err)
 		}
-		if version != release.ClientVersion {
-			return fmt.Errorf("client version mismatch got %q want %q", version, release.ClientVersion)
+		if version != opts.release.ClientVersion {
+			return fmt.Errorf("client version mismatch got %q want %q", version, opts.release.ClientVersion)
 		}
-	}
-
-	// We'll always need this for execve.
-	dstClient, err := os.Executable()
-	if err != nil {
-		return fmt.Errorf("error finding running executable: %v", err)
 	}
 
 	// Move the existing binaries out of the way (and keep them as
 	// backups).
-	if tmpRestic != "" {
-		if err := os.Rename(dstRestic, dstRestic+".old"); err != nil {
-			return fmt.Errorf("error moving old restic: %v", err)
-		}
-		defer func() {
-			if err == nil {
-				return
-			}
-
-			// Something went wrong, revert.
-			log.Errorf("Encountered error: %v; moving old restic back", err)
-			if err := os.Rename(dstRestic+".old", dstRestic); err != nil {
-				log.Errorf("Failed to move restic back: %v", err)
-			}
-		}()
+	var move []string
+	if opts.updateRestic {
+		move = append(move, opts.resticPath)
 	}
-	if tmpClient != "" {
-		if err := os.Rename(dstClient, dstClient+".old"); err != nil {
-			return fmt.Errorf("error moving old client: %v", err)
+	if opts.updateClient {
+		move = append(move, opts.clientPath)
+	}
+
+	for _, p := range move {
+		if err := os.Rename(p, p+".old"); err != nil {
+			return fmt.Errorf("error moving old binary %s: %v", p, err)
 		}
 		defer func() {
 			if err == nil {
@@ -209,21 +218,21 @@ func checkAndInstall(release *api.Release, tmpRestic, tmpClient string) (err err
 			}
 
 			// Something went wrong, revert.
-			log.Errorf("Encountered error: %v; moving old client back", err)
-			if err := os.Rename(dstClient+".old", dstClient); err != nil {
-				log.Errorf("Failed to move client back: %v", err)
+			log.Errorf("Encountered error: %v; moving old binary back", err)
+			if err := os.Rename(p+".old", p); err != nil {
+				log.Errorf("Failed to move %s back: %v", p, err)
 			}
 		}()
 	}
 
 	// Finally, move the existing binaries into place.
-	if tmpRestic != "" {
-		if err := os.Rename(tmpRestic, dstRestic); err != nil {
+	if opts.updateRestic {
+		if err := os.Rename(tmpRestic, opts.resticPath); err != nil {
 			return fmt.Errorf("error moving new restic: %v", err)
 		}
 	}
-	if tmpClient != "" {
-		if err := os.Rename(tmpClient, dstClient); err != nil {
+	if opts.updateClient {
+		if err := os.Rename(tmpClient, opts.clientPath); err != nil {
 			return fmt.Errorf("error moving new client: %v", err)
 		}
 	}
@@ -231,7 +240,7 @@ func checkAndInstall(release *api.Release, tmpRestic, tmpClient string) (err err
 	// Success! Re-exec to the new version. This isn't actually needed if
 	// we only updated restic, but it is simple enough to restart.
 	log.Infof("Updated, restarting...")
-	execve(dstClient, os.Args[1:])
+	execve(opts.clientPath, os.Args[1:])
 
 	return nil
 }

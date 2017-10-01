@@ -50,13 +50,13 @@ func main() {
 		log.Warningf("Error writing ClientStarted event: %v", err)
 	}
 
+	if err := updateCheck(ctx, a); err != nil {
+		log.Errorf("Unable to update: %v", err)
+	}
+
 	r, err := newRestic()
 	if err != nil {
 		log.Exitf("Failed to create restic: %v", err)
-	}
-
-	if err := updateCheck(a, r); err != nil {
-		log.Errorf("Unable to update: %v", err)
 	}
 
 	backup := viper.GetStringSlice("backup")
