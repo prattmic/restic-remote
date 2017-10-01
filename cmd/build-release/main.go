@@ -26,14 +26,25 @@ func main() {
 
 	release := filepath.Join(root, "release")
 
+	var ver *versions
 	if *build {
-		if err := buildRelease(root, release); err != nil {
+		var err error
+		ver, err = buildRelease(root, release)
+		if err != nil {
 			glog.Exitf("Unable to build release: %v", err)
 		}
 	}
 
+	if ver == nil {
+		var err error
+		ver, err = findVersions(release)
+		if err != nil {
+			glog.Exitf("Unable to determine versions: %v", err)
+		}
+	}
+
 	if *deploy {
-		if err := deployRelease(release); err != nil {
+		if err := deployRelease(release, ver); err != nil {
 			glog.Exitf("Unable to deploy release: %v", err)
 		}
 	}

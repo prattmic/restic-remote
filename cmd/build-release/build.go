@@ -35,12 +35,10 @@ func buildRestic(root, release string) (string, error) {
 
 	// Find the version.
 	glog.Infof("Determing restic version...")
-	cmd = exec.Command(bin, "version")
-	b, err := cmd.Output()
+	version, err := resticVersion(bin)
 	if err != nil {
 		return "", fmt.Errorf("error finding version: %v", err)
 	}
-	version := string(b)
 
 	bin = filepath.Join(release, "restic.exe")
 	glog.Infof("Building %s", bin)
@@ -93,39 +91,44 @@ func buildClient(root, release string) (string, error) {
 	return version, nil
 }
 
-func stampVersion(release string) error {
+func stampVersion(release string) (string, error) {
 	version := time.Now().UTC().Format(time.RFC3339)
 	glog.Infof("Release version: %s", version)
 
 	f := filepath.Join(release, "VERSION")
 	if err := ioutil.WriteFile(f, []byte(version), 0644); err != nil {
-		return fmt.Errorf("error writing VERSION file: %v", err)
+		return "", fmt.Errorf("error writing VERSION file: %v", err)
 	}
 
-	return nil
+	return version, nil
 }
 
-func buildRelease(root, release string) error {
+func buildRelease(root, release string) (*versions, error) {
 	if err := createEmptyDir(release); err != nil {
-		return fmt.Errorf("error creating release directory: %v", err)
+		return nil, fmt.Errorf("error creating release directory: %v", err)
 	}
 
 	rver, err := buildRestic(root, release)
 	if err != nil {
-		return fmt.Errorf("error building restic: %v", err)
+		return nil, fmt.Errorf("error building restic: %v", err)
 	}
 
 	cver, err := buildClient(root, release)
 	if err != nil {
-		return fmt.Errorf("error building client: %v", err)
+		return nil, fmt.Errorf("error building client: %v", err)
 	}
 
 	glog.Infof("Built restic version: %s", rver)
 	glog.Infof("Built client version: %s", cver)
 
-	if err = stampVersion(release); err != nil {
-		return fmt.Errorf("error stamping version: %v", err)
+	ver, err := stampVersion(release)
+	if err != nil {
+		return nil, fmt.Errorf("error stamping version: %v", err)
 	}
 
-	return nil
+	return &versions{
+		release: ver,
+		restic:  rver,
+		client:  cver,
+	}, nil
 }
