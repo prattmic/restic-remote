@@ -2,6 +2,7 @@ server/app.yaml
 
 /client
 /client.exe
+/client.old
 
 /build-release
 
