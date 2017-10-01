@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/prattmic/restic-remote/api"
 	"github.com/prattmic/restic-remote/log"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -22,16 +21,6 @@ var (
 	// version prints the current version then exits.
 	version = pflag.Bool("version", false, "Print version and exit")
 )
-
-func updateCheck(a *api.API) {
-	release, err := a.GetRelease()
-	if err != nil {
-		log.Errorf("Error getting current release: %v", err)
-		return
-	}
-
-	log.Infof("release: %+v", release)
-}
 
 func main() {
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
@@ -61,11 +50,13 @@ func main() {
 		log.Warningf("Error writing ClientStarted event: %v", err)
 	}
 
-	updateCheck(a)
-
 	r, err := newRestic()
 	if err != nil {
 		log.Exitf("Failed to create restic: %v", err)
+	}
+
+	if err := updateCheck(a, r); err != nil {
+		log.Errorf("Unable to update: %v", err)
 	}
 
 	backup := viper.GetStringSlice("backup")

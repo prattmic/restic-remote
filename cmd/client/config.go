@@ -47,6 +47,8 @@ func init() {
 	boundStringFlag("restic.password", "", "restic repository password")
 	boundStringFlag("restic.google-project-id", "", "Google Cloud project ID for restic repositories using the GCS backend")
 	boundStringFlag("restic.google-credentials", "", "Google Cloud application credentials JSON path for restic repositories using the GCS backend")
+
+	boundStringFlag("google.binary-bucket", "", "Bucket containing binary releases")
 }
 
 // configFolderName is the application directory inside of the system config
