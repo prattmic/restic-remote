@@ -46,7 +46,7 @@ func updateCheck(ctx context.Context, a *api.API) error {
 		release: release,
 	}
 
-	opts.googleCredsFile = viper.GetString("restic.google-credentials")  // TODO: not restic.
+	opts.googleCredsFile = viper.GetString("google.credentials")
 	if opts.googleCredsFile == "" {
 		return fmt.Errorf("no Google credentials")
 	}

@@ -45,10 +45,11 @@ func init() {
 	boundStringFlag("restic.binary", "", "restic binary path")
 	boundStringFlag("restic.repository", "", "restic repository path")
 	boundStringFlag("restic.password", "", "restic repository password")
-	boundStringFlag("restic.google-project-id", "", "Google Cloud project ID for restic repositories using the GCS backend")
-	boundStringFlag("restic.google-credentials", "", "Google Cloud application credentials JSON path for restic repositories using the GCS backend")
 
-	boundStringFlag("google.binary-bucket", "", "Bucket containing binary releases")
+	// viper "google" sub-tree.
+	boundStringFlag("google.project-number", "", "Google Cloud project number for restic and update GCS operations")
+	boundStringFlag("google.credentials", "", "Google Cloud application credentials JSON path for restic and update GCS operation")
+	boundStringFlag("google.binary-bucket", "", "Bucket containing binary releases (just name, no gs://)")
 }
 
 // configFolderName is the application directory inside of the system config
@@ -96,8 +97,8 @@ func newRestic() (*restic.Restic, error) {
 	}
 	rconf.Hostname = viper.GetString("hostname")
 	rconf.BackendOptions = map[string]string{
-		"GOOGLE_PROJECT_ID":              viper.GetString("restic.google-project-id"),
-		"GOOGLE_APPLICATION_CREDENTIALS": viper.GetString("restic.google-credentials"),
+		"GOOGLE_PROJECT_ID":              viper.GetString("google.project-number"),
+		"GOOGLE_APPLICATION_CREDENTIALS": viper.GetString("google.credentials"),
 	}
 
 	return restic.New(rconf)

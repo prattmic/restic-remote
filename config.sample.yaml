@@ -14,5 +14,8 @@ restic:
   binary: /path/to/restic
   repository: RESTIC_REPOSITORY
   password: RESTIC_PASSWORD
-  google-project-id: GOOGLE_PROJECT_ID
-  google-credentials: GOOGLE_APPLICATION_CREDENTIALS
+
+google:
+  project-number: GOOGLE_PROJECT_NUMBER
+  credentials: GOOGLE_APPLICATION_CREDENTIALS
+  binary-bucket: BINARY_GCS_BUCKET
