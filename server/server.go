@@ -29,11 +29,11 @@ func init() {
 
 	http.Handle("/", v.ValidateWithScopes(nil, http.HandlerFunc(root)))
 
-	binaryScopes := auth0.MethodScopes{
-		"GET":  []string{"read:binary"},
-		"POST": []string{"write:binary"},
+	releaseScopes := auth0.MethodScopes{
+		"GET":  []string{"read:release"},
+		"POST": []string{"write:release"},
 	}
-	http.Handle("/api/v1/binary", v.ValidateWithScopes(binaryScopes, http.HandlerFunc(binary)))
+	http.Handle("/api/v1/release", v.ValidateWithScopes(releaseScopes, http.HandlerFunc(release)))
 
 	eventScopes := auth0.MethodScopes{
 		"POST": []string{"write:events"},

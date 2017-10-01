@@ -24,21 +24,13 @@ var (
 )
 
 func updateCheck(a *api.API) {
-	restic, err := a.GetBinary("restic")
+	release, err := a.GetRelease()
 	if err != nil {
-		log.Errorf("Error getting restic binary info: %v", err)
+		log.Errorf("Error getting current release: %v", err)
 		return
 	}
 
-	log.Infof("restic: %+v", restic)
-
-	remote, err := a.GetBinary("client")
-	if err != nil {
-		log.Errorf("Error getting client binary info: %v", err)
-		return
-	}
-
-	log.Infof("client: %+v", remote)
+	log.Infof("release: %+v", release)
 }
 
 func main() {

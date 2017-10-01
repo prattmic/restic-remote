@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"path"
 
 	"github.com/prattmic/restic-remote/api"
 	"github.com/prattmic/restic-remote/auth0"
@@ -25,24 +24,14 @@ func rolloutRelease(release string, ver *versions) error {
 		return fmt.Errorf("error creating API: %v", err)
 	}
 
-	glog.Infof("Rolling out restic...")
-	bin := api.Binary{
-		Name:    "restic",
-		Path:    path.Join(ver.release, "restic"),
-		Version: ver.restic,
+	glog.Infof("Rolling out release...")
+	rel := api.Release{
+		Path:          ver.release,
+		ResticVersion: ver.restic,
+		ClientVersion: ver.client,
 	}
-	if err := a.PostBinary(&bin); err != nil {
-		return fmt.Errorf("error POSTing restic: %v", err)
-	}
-
-	glog.Infof("Rolling out client...")
-	bin = api.Binary{
-		Name:    "client",
-		Path:    path.Join(ver.release, "client"),
-		Version: ver.client,
-	}
-	if err := a.PostBinary(&bin); err != nil {
-		return fmt.Errorf("error POSTing client: %v", err)
+	if err := a.PostRelease(&rel); err != nil {
+		return fmt.Errorf("error POSTing release: %v", err)
 	}
 
 	return nil

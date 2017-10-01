@@ -19,7 +19,7 @@ import (
 
 // API endpoints.
 const (
-	binaryEndpoint = "/api/v1/binary"
+	releaseEndpoint = "/api/v1/release"
 	eventEndpoint  = "/api/v1/event"
 )
 
