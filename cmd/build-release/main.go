@@ -10,9 +10,9 @@ import (
 
 var (
 	build  = flag.Bool("build", true, "build new release")
-	deploy = flag.Bool("deploy", false, "deploy new release")
+	upload = flag.Bool("upload", false, "upload new release")
 
-	bucket = flag.String("bucket", "", "bucket to deploy to (gs://foo/)")
+	bucket = flag.String("bucket", "", "bucket to upload to (gs://foo/)")
 )
 
 func main() {
@@ -43,9 +43,9 @@ func main() {
 		}
 	}
 
-	if *deploy {
-		if err := deployRelease(release, ver); err != nil {
-			glog.Exitf("Unable to deploy release: %v", err)
+	if *upload {
+		if err := uploadRelease(release, ver); err != nil {
+			glog.Exitf("Unable to upload release: %v", err)
 		}
 	}
 }

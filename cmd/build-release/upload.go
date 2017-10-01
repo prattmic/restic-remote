@@ -51,7 +51,7 @@ func gsCopy(dst string, src ...string) error {
 	return nil
 }
 
-func deployRelease(release string, ver *versions) error {
+func uploadRelease(release string, ver *versions) error {
 	if *bucket == "" {
 		return fmt.Errorf("-bucket must be set")
 	}
