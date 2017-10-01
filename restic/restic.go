@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 // Config contains the configuration for restic.
@@ -84,7 +85,7 @@ func (r *Restic) Version() (string, error) {
 		return "", fmt.Errorf("'restic version' failed with error %v. stderr: %s", err, se)
 	}
 
-	return so, nil
+	return strings.Trim(so, "\r\n"), nil
 }
 
 // Snapshots returns the all restic snapshots. It does no parsing.

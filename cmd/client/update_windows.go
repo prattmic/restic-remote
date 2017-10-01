@@ -8,8 +8,11 @@ import (
 )
 
 func execve(bin string, args []string) {
-	log.Infof("Running command %v", argv)
-	cmd := exec.Command(bin, args...)
+	c := []string{bin}
+	c = append(c, args...)
+	log.Infof("Running command %v", c)
+
+	cmd := exec.Command(c[0], c[1:]...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

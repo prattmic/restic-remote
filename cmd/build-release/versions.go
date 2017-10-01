@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/golang/glog"
 )
@@ -18,13 +19,13 @@ type versions struct {
 func clientVersion(bin string) (string, error) {
 	cmd := exec.Command(bin, "--version")
 	b, err := cmd.Output()
-	return string(b), err
+	return strings.Trim(string(b), "\r\n"), err
 }
 
 func resticVersion(bin string) (string, error) {
 	cmd := exec.Command(bin, "version")
 	b, err := cmd.Output()
-	return string(b), err
+	return strings.Trim(string(b), "\r\n"), err
 }
 
 func findVersions(release string) (*versions, error) {

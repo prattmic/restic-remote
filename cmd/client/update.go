@@ -11,6 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"cloud.google.com/go/storage"
 	"github.com/prattmic/restic-remote/api"
@@ -46,14 +47,8 @@ func updateCheck(a *api.API, r *restic.Restic) error {
 	return performUpdate(release, updateRestic, updateClient)
 }
 
-func download(ctx context.Context, dst string, bkt *storage.BucketHandle, path string) error {
-	log.Infof("Downloading %s to %s", path, dst)
-
-	f, err := os.OpenFile(dst, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0755)
-	if err != nil {
-		return fmt.Errorf("error opening destination: %v", err)
-	}
-	defer f.Close()
+func download(ctx context.Context, dst *os.File, bkt *storage.BucketHandle, path string) error {
+	log.Infof("Downloading %s to %s", path, dst.Name())
 
 	obj := bkt.Object(path)
 	r, err := obj.NewReader(ctx)
@@ -62,20 +57,28 @@ func download(ctx context.Context, dst string, bkt *storage.BucketHandle, path s
 	}
 	defer r.Close()
 
-	if _, err := io.Copy(f, r); err != nil {
+	if _, err := io.Copy(dst, r); err != nil {
 		return fmt.Errorf("error downloading object: %v", err)
 	}
 
 	return nil
 }
 
-func performUpdate(release *api.Release, updateRestic, updateClient bool) error {
-	dir, err := ioutil.TempDir("", "restic-remote-update")
+func tempExecutable(dir, prefix string) (*os.File, error) {
+	f, err := ioutil.TempFile(dir, prefix)
 	if err != nil {
-		return fmt.Errorf("error creating update directory: %v", err)
+		return f, fmt.Errorf("error creating tmpfile: %v", err)
 	}
-	defer os.RemoveAll(dir)
 
+	if err := f.Chmod(0755); err != nil {
+		f.Close()
+		return nil, fmt.Errorf("error setting permissions: %v", err)
+	}
+
+	return f, nil
+}
+
+func performUpdate(release *api.Release, updateRestic, updateClient bool) error {
 	bucketURL := viper.GetString("google.binary-bucket")
 	if bucketURL == "" {
 		return fmt.Errorf("Binary bucket not configured")
@@ -105,16 +108,41 @@ func performUpdate(release *api.Release, updateRestic, updateClient bool) error 
 
 	var tmpRestic, tmpClient string
 	if updateRestic {
-		tmpRestic = filepath.Join(dir, resticBin)
+		dstRestic := viper.GetString("restic.binary")
+
+		// Create new file in the same folder so we won't accidentally
+		// try to do a cross-mount rename later.
+		f, err := tempExecutable(filepath.Dir(dstRestic), "restic.new")
+		if err != nil {
+			return fmt.Errorf("error creating restic tmpfile: %v", err)
+		}
+		tmpRestic = f.Name()
+		defer os.Remove(tmpRestic)
+
 		srcRestic := path.Join(release.Path, resticBin)
-		if err := download(ctx, tmpRestic, bkt, srcRestic); err != nil {
+		err = download(ctx, f, bkt, srcRestic)
+		f.Close()
+		if err != nil {
 			return fmt.Errorf("error downloading restic: %v", err)
 		}
 	}
 	if updateClient {
-		tmpClient = filepath.Join(dir, clientBin)
+		dstClient, err := os.Executable()
+		if err != nil {
+			return fmt.Errorf("error finding running executable: %v", err)
+		}
+
+		f, err := tempExecutable(filepath.Dir(dstClient), "client.new")
+		if err != nil {
+			return fmt.Errorf("error creating client tmpfile: %v", err)
+		}
+		tmpClient = f.Name()
+		defer os.Remove(tmpClient)
+
 		srcClient := path.Join(release.Path, clientBin)
-		if err := download(ctx, tmpClient, bkt, srcClient); err != nil {
+		err = download(ctx, f, bkt, srcClient)
+		f.Close()
+		if err != nil {
 			return fmt.Errorf("error downloading restic: %v", err)
 		}
 	}
@@ -126,19 +154,19 @@ func performUpdate(release *api.Release, updateRestic, updateClient bool) error 
 func clientVersion(bin string) (string, error) {
 	cmd := exec.Command(bin, "--version")
 	b, err := cmd.Output()
-	return string(b), err
+	return strings.Trim(string(b), "\r\n"), err
 }
 
 func resticVersion(bin string) (string, error) {
 	cmd := exec.Command(bin, "version")
 	b, err := cmd.Output()
-	return string(b), err
+	return strings.Trim(string(b), "\r\n"), err
 }
 
 func checkAndInstall(release *api.Release, tmpRestic, tmpClient string) (err error) {
 	// Make sure we got working binaries with the correct versions.
 
-	var dstRestic, dstClient string
+	var dstRestic string
 	if tmpRestic != "" {
 		version, err := resticVersion(tmpRestic)
 		if err != nil {
@@ -159,11 +187,12 @@ func checkAndInstall(release *api.Release, tmpRestic, tmpClient string) (err err
 		if version != release.ClientVersion {
 			return fmt.Errorf("client version mismatch got %q want %q", version, release.ClientVersion)
 		}
+	}
 
-		dstClient, err = os.Executable()
-		if err != nil {
-			return fmt.Errorf("error finding running executable: %v", err)
-		}
+	// We'll always need this for execve.
+	dstClient, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("error finding running executable: %v", err)
 	}
 
 	// Move the existing binaries out of the way (and keep them as
