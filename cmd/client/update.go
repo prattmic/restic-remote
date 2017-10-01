@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"net/url"
@@ -9,10 +11,12 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"cloud.google.com/go/storage"
 	"github.com/prattmic/restic-remote/api"
 	"github.com/prattmic/restic-remote/log"
 	"github.com/prattmic/restic-remote/restic"
 	"github.com/spf13/viper"
+	"google.golang.org/api/option"
 )
 
 func updateCheck(a *api.API, r *restic.Restic) error {
@@ -72,13 +76,22 @@ func performUpdate(release *api.Release, updateRestic, updateClient bool) error 
 	srcRestic := path.Join(release.Path, resticBin)
 	srcClient := path.Join(release.Path, clientBin)
 
+	ctx := context.Background()
+	creds := viper.GetString("restic.google-credentials")  // TODO: not restic.
+	c, err := storage.NewClient(ctx, option.WithCredentialsFile(creds))
+	if err != nil {
+		return fmt.Errorf("error creating storage client: %v", err)
+	}
+
+	bkt := c.Bucket(bucket)
+
 	if updateRestic {
-		if err := download(tmpRestic, bucket, srcRestic); err != nil {
+		if err := download(ctx, tmpRestic, bkt, srcRestic); err != nil {
 			return fmt.Errorf("error downloading restic: %v", err)
 		}
 	}
 	if updateClient {
-		if err := download(tmpClient, bucket, srcClient); err != nil {
+		if err := download(ctx, tmpClient, bkt, srcClient); err != nil {
 			return fmt.Errorf("error downloading restic: %v", err)
 		}
 	}
@@ -86,5 +99,25 @@ func performUpdate(release *api.Release, updateRestic, updateClient bool) error 
 	return nil
 }
 
-func download(dst, bucket, path string) error {
+func download(ctx context.Context, dst string, bkt *storage.BucketHandle, path string) error {
+	log.Infof("Downloading %s to %s", path, dst)
+
+	f, err := os.OpenFile(dst, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0755)
+	if err != nil {
+		return fmt.Errorf("error opening destination: %v", err)
+	}
+	defer f.Close()
+
+	obj := bkt.Object(path)
+	r, err := obj.NewReader(ctx)
+	if err != nil {
+		return fmt.Errorf("error opening object %s: %v", path, err)
+	}
+	defer r.Close()
+
+	if _, err := io.Copy(f, r); err != nil {
+		return fmt.Errorf("error downloading object: %v", err)
+	}
+
+	return nil
 }
