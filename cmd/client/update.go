@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"net/url"
 	"path"
 	"path/filepath"
@@ -93,12 +94,6 @@ func performUpdate(release *api.Release, updateRestic, updateClient bool) error 
 		clientBin += ".exe"
 	}
 
-	tmpRestic := filepath.Join(dir, resticBin)
-	tmpClient := filepath.Join(dir, clientBin)
-
-	srcRestic := path.Join(release.Path, resticBin)
-	srcClient := path.Join(release.Path, clientBin)
-
 	ctx := context.Background()
 	creds := viper.GetString("restic.google-credentials")  // TODO: not restic.
 	c, err := storage.NewClient(ctx, option.WithCredentialsFile(creds))
@@ -108,16 +103,120 @@ func performUpdate(release *api.Release, updateRestic, updateClient bool) error 
 
 	bkt := c.Bucket(bucket)
 
+	var tmpRestic, tmpClient string
 	if updateRestic {
+		tmpRestic = filepath.Join(dir, resticBin)
+		srcRestic := path.Join(release.Path, resticBin)
 		if err := download(ctx, tmpRestic, bkt, srcRestic); err != nil {
 			return fmt.Errorf("error downloading restic: %v", err)
 		}
 	}
 	if updateClient {
+		tmpClient = filepath.Join(dir, clientBin)
+		srcClient := path.Join(release.Path, clientBin)
 		if err := download(ctx, tmpClient, bkt, srcClient); err != nil {
 			return fmt.Errorf("error downloading restic: %v", err)
 		}
 	}
+
+	return checkAndInstall(release, tmpRestic, tmpClient)
+}
+
+// TODO: dedup
+func clientVersion(bin string) (string, error) {
+	cmd := exec.Command(bin, "--version")
+	b, err := cmd.Output()
+	return string(b), err
+}
+
+func resticVersion(bin string) (string, error) {
+	cmd := exec.Command(bin, "version")
+	b, err := cmd.Output()
+	return string(b), err
+}
+
+func checkAndInstall(release *api.Release, tmpRestic, tmpClient string) (err error) {
+	// Make sure we got working binaries with the correct versions.
+
+	var dstRestic, dstClient string
+	if tmpRestic != "" {
+		version, err := resticVersion(tmpRestic)
+		if err != nil {
+			return fmt.Errorf("error getting version of new restic %s: %v", tmpRestic, err)
+		}
+		if version != release.ResticVersion {
+			return fmt.Errorf("restic version mismatch got %q want %q", version, release.ResticVersion)
+		}
+
+		// TODO: pass this in?
+		dstRestic = viper.GetString("restic.binary")
+	}
+	if tmpClient != "" {
+		version, err := clientVersion(tmpClient)
+		if err != nil {
+			return fmt.Errorf("error getting version of new client %s: %v", tmpClient, err)
+		}
+		if version != release.ClientVersion {
+			return fmt.Errorf("client version mismatch got %q want %q", version, release.ClientVersion)
+		}
+
+		dstClient, err = os.Executable()
+		if err != nil {
+			return fmt.Errorf("error finding running executable: %v", err)
+		}
+	}
+
+	// Move the existing binaries out of the way (and keep them as
+	// backups).
+	if tmpRestic != "" {
+		if err := os.Rename(dstRestic, dstRestic+".old"); err != nil {
+			return fmt.Errorf("error moving old restic: %v", err)
+		}
+		defer func() {
+			if err == nil {
+				return
+			}
+
+			// Something went wrong, revert.
+			log.Errorf("Encountered error: %v; moving old restic back", err)
+			if err := os.Rename(dstRestic+".old", dstRestic); err != nil {
+				log.Errorf("Failed to move restic back: %v", err)
+			}
+		}()
+	}
+	if tmpClient != "" {
+		if err := os.Rename(dstClient, dstClient+".old"); err != nil {
+			return fmt.Errorf("error moving old client: %v", err)
+		}
+		defer func() {
+			if err == nil {
+				return
+			}
+
+			// Something went wrong, revert.
+			log.Errorf("Encountered error: %v; moving old client back", err)
+			if err := os.Rename(dstClient+".old", dstClient); err != nil {
+				log.Errorf("Failed to move client back: %v", err)
+			}
+		}()
+	}
+
+	// Finally, move the existing binaries into place.
+	if tmpRestic != "" {
+		if err := os.Rename(tmpRestic, dstRestic); err != nil {
+			return fmt.Errorf("error moving new restic: %v", err)
+		}
+	}
+	if tmpClient != "" {
+		if err := os.Rename(tmpClient, dstClient); err != nil {
+			return fmt.Errorf("error moving new client: %v", err)
+		}
+	}
+
+	// Success! Re-exec to the new version. This isn't actually needed if
+	// we only updated restic, but it is simple enough to restart.
+	log.Infof("Updated, restarting...")
+	execve(dstClient, os.Args[1:])
 
 	return nil
 }
