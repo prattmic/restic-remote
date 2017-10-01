@@ -1,11 +1,38 @@
 package main
 
 import (
+	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 
 	"github.com/prattmic/restic-remote/log"
 )
+
+func tempExecutable(dir, prefix string) (*os.File, error) {
+	f, err := ioutil.TempFile(dir, prefix)
+	if err != nil {
+		return nil, fmt.Errorf("error creating tmpfile: %v", err)
+	}
+
+	name := f.Name()
+	if err := f.Close(); err != nil {
+		return nil, fmt.Errorf("error closing file: %v", err)
+	}
+
+	// Must end in .exe.
+	if err := os.Rename(name, name+".exe"); err != nil {
+		return nil, fmt.Errorf("error renaming file: %v", err)
+	}
+
+	f, err = os.OpenFile(name+".exe", os.O_RDWR, 0)
+	if err != nil {
+		return nil, fmt.Errorf("error re-opening file: %v", err)
+	}
+
+
+	return f, nil
+}
 
 func execve(bin string, args []string) {
 	c := []string{bin}

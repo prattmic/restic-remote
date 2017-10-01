@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -99,24 +98,6 @@ func download(ctx context.Context, dst *os.File, bkt *storage.BucketHandle, path
 	}
 
 	return nil
-}
-
-func tempExecutable(dir, prefix string) (*os.File, error) {
-	f, err := ioutil.TempFile(dir, prefix)
-	if err != nil {
-		return f, fmt.Errorf("error creating tmpfile: %v", err)
-	}
-
-	// Chmod doesn't work on Windows, but files are executable by default
-	// anyways.
-	if runtime.GOOS != "windows" {
-		if err := f.Chmod(0755); err != nil {
-			f.Close()
-			return nil, fmt.Errorf("error setting permissions: %v", err)
-		}
-	}
-
-	return f, nil
 }
 
 // downloadToTmp downloads the new release of the existing binary bin to a
