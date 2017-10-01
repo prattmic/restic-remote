@@ -26,7 +26,7 @@ func binary(w http.ResponseWriter, r *http.Request) {
 	case "GET":
 		binaryGet(w, r)
 	case "POST":
-		binaryGet(w, r)
+		binaryPost(w, r)
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		fmt.Fprintf(w, "%s requests not allowed", r.Method)

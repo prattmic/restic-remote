@@ -32,13 +32,13 @@ func updateCheck(a *api.API) {
 
 	log.Infof("restic: %+v", restic)
 
-	remote, err := a.GetBinary("restic-remote")
+	remote, err := a.GetBinary("client")
 	if err != nil {
-		log.Errorf("Error getting restic-remote binary info: %v", err)
+		log.Errorf("Error getting client binary info: %v", err)
 		return
 	}
 
-	log.Infof("restic-remote: %+v", remote)
+	log.Infof("client: %+v", remote)
 }
 
 func main() {
