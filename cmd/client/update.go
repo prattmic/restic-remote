@@ -34,6 +34,11 @@ type updateOpts struct {
 }
 
 func updateCheck(ctx context.Context, a *api.API) error {
+	if !viper.GetBool("update") {
+		log.Infof("Skipping update check")
+		return nil
+	}
+
 	release, err := a.GetRelease()
 	if err != nil {
 		return fmt.Errorf("error getting current release: %v", err)

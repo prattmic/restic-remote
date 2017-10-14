@@ -29,10 +29,18 @@ func boundStringSliceFlag(name string, d []string, desc string) {
 	viper.BindPFlag(name, pflag.Lookup(fname))
 }
 
+// boundBoolFlag is equivalent to boundStringFlag for bool flags.
+func boundBoolFlag(name string, d bool, desc string) {
+	fname := strings.Replace(name, ".", "-", -1)
+	pflag.Bool(fname, d, desc)
+	viper.BindPFlag(name, pflag.Lookup(fname))
+}
+
 func init() {
 	// viper top-level options.
 	boundStringSliceFlag("backup", nil, "list of paths to backup")
 	boundStringFlag("hostname", "", "hostname to use for api and snapshots")
+	boundBoolFlag("update", true, "perform an update check")
 
 	// viper "api" sub-tree.
 	boundStringFlag("api.root", "", "API root URL")
