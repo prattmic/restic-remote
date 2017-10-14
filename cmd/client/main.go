@@ -20,6 +20,9 @@ var (
 
 	// version prints the current version then exits.
 	version = pflag.Bool("version", false, "Print version and exit")
+
+	// resticWrap wraps runs restic with the client config.
+	resticWrap = pflag.Bool("restic", false, "Run restic with the config and following flags")
 )
 
 func main() {
@@ -36,6 +39,10 @@ func main() {
 	}
 
 	readConfig()
+
+	if *resticWrap {
+		wrapRestic()
+	}
 
 	log.Infof("restic-remote client started")
 

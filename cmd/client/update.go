@@ -225,7 +225,7 @@ func checkAndInstall(opts updateOpts, tmpRestic, tmpClient string) (err error) {
 	// Success! Re-exec to the new version. This isn't actually needed if
 	// we only updated restic, but it is simple enough to restart.
 	log.Infof("Updated, restarting...")
-	execve(opts.clientPath, os.Args[1:])
+	execve(opts.clientPath, os.Args[1:], os.Environ())
 
 	return nil
 }

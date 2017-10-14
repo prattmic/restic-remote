@@ -34,12 +34,13 @@ func tempExecutable(dir, prefix string) (*os.File, error) {
 	return f, nil
 }
 
-func execve(bin string, args []string) {
+func execve(bin string, args []string, envv []string) {
 	c := []string{bin}
 	c = append(c, args...)
 	log.Infof("Running command %v", c)
 
 	cmd := exec.Command(c[0], c[1:]...)
+	cmd.Env = envv
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
