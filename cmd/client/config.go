@@ -55,6 +55,7 @@ func init() {
 	boundStringFlag("restic.password", "", "restic repository password")
 	boundStringFlag("restic.limit-download", "", "restic download bandwidth limit (KiB/s)")
 	boundStringFlag("restic.limit-upload", "", "restic upload bandwidth limit (KiB/s)")
+	boundStringFlag("restic.gcs-chunk-size", "", "GCS upload chunk size (bytes)")
 
 	// viper "google" sub-tree.
 	boundStringFlag("google.project-number", "", "Google Cloud project number for restic and update GCS operations")
@@ -106,9 +107,14 @@ func newRestic() (*restic.Restic, error) {
 		return nil, fmt.Errorf("error unmarshalling restic config: %v", err)
 	}
 	rconf.Hostname = viper.GetString("hostname")
-	rconf.BackendOptions = map[string]string{
+	rconf.BackendEnv = map[string]string{
 		"GOOGLE_PROJECT_ID":              viper.GetString("google.project-number"),
 		"GOOGLE_APPLICATION_CREDENTIALS": viper.GetString("google.credentials"),
+	}
+	rconf.BackendOptions = make(map[string]string)
+	cs := viper.GetString("restic.gcs-chunk-size")
+	if cs != "" {
+		rconf.BackendOptions["gs.chunksize"] = cs
 	}
 
 	return restic.New(rconf)

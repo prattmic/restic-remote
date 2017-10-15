@@ -37,8 +37,12 @@ type Config struct {
 	// unlimited.
 	LimitDownload uint64 `mapstructure:"limit-download"`
 
-	// BackendOptions are optional options for the repository backend. They
+	// BackendEnv are optional options for the repository backend. They
 	// are passed as environment variables to restic.
+	BackendEnv map[string]string
+
+	// BackendOptions are optional options for the repository backend. They
+	// are passed via '-o'.
 	BackendOptions map[string]string
 }
 
@@ -79,13 +83,17 @@ func (r *Restic) run(args ...string) (string, string, error) {
 		args = append(args, "--limit-download", strconv.FormatUint(r.config.LimitDownload, 10))
 	}
 
+	for k, v := range r.config.BackendOptions {
+		args = append(args, "-o", k+"="+v)
+	}
+
 	log.Infof("Running %s %v", r.config.Binary, args)
 
 	c := exec.Command(r.config.Binary, args...)
 	c.Env = os.Environ()
 	c.Env = append(c.Env, "RESTIC_REPOSITORY="+r.config.Repository)
 	c.Env = append(c.Env, "RESTIC_PASSWORD="+r.config.Password)
-	for k, v := range r.config.BackendOptions {
+	for k, v := range r.config.BackendEnv {
 		c.Env = append(c.Env, k+"="+v)
 	}
 
