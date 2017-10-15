@@ -33,7 +33,7 @@ func findVersions(release string) (*versions, error) {
 	}
 
 	glog.Infof("Finding client version...")
-	ver.client, err = binver.Restic(filepath.Join(release, "client"))
+	ver.client, err = binver.Client(filepath.Join(release, "client"))
 	if err != nil {
 		return nil, fmt.Errorf("error reading client version: %v", err)
 	}
