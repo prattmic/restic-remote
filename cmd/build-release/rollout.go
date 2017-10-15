@@ -5,21 +5,19 @@ import (
 	"fmt"
 
 	"github.com/prattmic/restic-remote/api"
-	"github.com/prattmic/restic-remote/auth0"
 	"github.com/golang/glog"
+	"github.com/spf13/viper"
 )
 
 func rolloutRelease(release string, ver *versions) error {
 	ctx := context.Background()
-	a, err := api.New(ctx, api.Config{
-		ClientConfig: auth0.ClientConfig{
-			ClientID:     *apiClientID,
-			ClientSecret: *apiClientSecret,
-			Audience:     *apiAudience,
-			TokenURL:     *apiTokenURL,
-		},
-		Root:         *apiRoot,
-	})
+
+	var aconf api.Config
+	if err := viper.UnmarshalKey("api", &aconf); err != nil {
+		return fmt.Errorf("error unmarshalling API config: %v", err)
+	}
+
+	a, err := api.New(ctx, aconf)
 	if err != nil {
 		return fmt.Errorf("error creating API: %v", err)
 	}

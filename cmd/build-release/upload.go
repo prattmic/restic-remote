@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/golang/glog"
+	"github.com/spf13/viper"
 )
 
 func checkNotExist(dir string) error {
@@ -52,13 +53,14 @@ func gsCopy(dst string, src ...string) error {
 }
 
 func uploadRelease(release string, ver *versions) error {
-	if *bucket == "" {
-		return fmt.Errorf("-bucket must be set")
+	bucket := viper.GetString("bucket")
+	if bucket == "" {
+		return fmt.Errorf("bucket must be set")
 	}
 
-	destDir, err := url.Parse(*bucket)
+	destDir, err := url.Parse(bucket)
 	if err != nil {
-		return fmt.Errorf("malformed bucket %s", *bucket)
+		return fmt.Errorf("malformed bucket %s", bucket)
 	}
 	destDir.Path = path.Join(destDir.Path, ver.release)
 	glog.Infof("Deploying version: %s to %s", ver.release, destDir)

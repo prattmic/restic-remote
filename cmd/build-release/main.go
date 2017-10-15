@@ -4,27 +4,53 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/golang/glog"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 )
+
+// boundStringFlag defines a new flag that is bound to a viper key.
+//
+// name is the viper key name. The flag name replaces . with -.
+func boundStringFlag(name, d, desc string) {
+	fname := strings.Replace(name, ".", "-", -1)
+	pflag.String(fname, d, desc)
+	viper.BindPFlag(name, pflag.Lookup(fname))
+}
 
 var (
-	build   = flag.Bool("build", true, "build new release")
-	upload  = flag.Bool("upload", false, "upload new release")
-	rollout = flag.Bool("rollout", false, "rollout new release")
+	build   = pflag.Bool("build", true, "build new release")
+	upload  = pflag.Bool("upload", false, "upload new release")
+	rollout = pflag.Bool("rollout", false, "rollout new release")
 
-	bucket = flag.String("bucket", "", "bucket to upload to (gs://foo/)")
-
-	apiRoot         = flag.String("api-root", "", "API root URL")
-	apiClientID     = flag.String("api-client-id", "", "API client ID")
-	apiClientSecret = flag.String("api-client-secret", "", "API client secret")
-	apiAudience     = flag.String("api-audience", "", "API audience name")
-	apiTokenURL     = flag.String("api-token-url", "", "API token URL")
+	configPath = pflag.String("config", "", "Path to config file")
 )
+
+func init() {
+	boundStringFlag("bucket", "", "bucket to upload to (gs://foo/)")
+
+	boundStringFlag("api.root", "", "API root URL")
+	boundStringFlag("api.client-id", "", "API client ID")
+	boundStringFlag("api.client-secret", "", "API client secret")
+	boundStringFlag("api.audience", "", "API audience name")
+	boundStringFlag("api.token-url", "", "API token URL")
+}
 
 func main() {
 	flag.Set("alsologtostderr", "true")
-	flag.Parse()
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	pflag.Parse()
+
+	// Trick glog into thinking we called flag.Parse.
+	// https://github.com/kubernetes/kubernetes/issues/17162
+	flag.CommandLine.Parse([]string{})
+
+	viper.SetConfigFile(*configPath)
+	if err := viper.ReadInConfig(); err != nil {
+		glog.Warningf("Unable to read config: %v", err)
+	}
 
 	root, err := os.Getwd()
 	if err != nil {
