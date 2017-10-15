@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 
 	"github.com/prattmic/restic-remote/binver"
 )
@@ -26,6 +27,14 @@ type Config struct {
 	// Hostname is the hostname to use for this machine when performing
 	// backups.
 	Hostname string
+
+	// LimitUpload is the restic upload bandwidth limit in KiB/s. 0 is
+	// unlimited.
+	LimitUpload uint64 `mapstructure:"limit-upload"`
+
+	// LimitDownload is the restic download bandwidth limit in KiB/s. 0 is
+	// unlimited.
+	LimitDownload uint64 `mapstructure:"limit-download"`
 
 	// BackendOptions are optional options for the repository backend. They
 	// are passed as environment variables to restic.
@@ -63,6 +72,13 @@ func New(c Config) (*Restic, error) {
 // environment.
 func (r *Restic) run(args ...string) (string, string, error) {
 	c := exec.Command(r.config.Binary, args...)
+
+	if r.config.LimitUpload != 0 {
+		args = append(args, "--limit-upload", strconv.FormatUint(r.config.LimitUpload, 10))
+	}
+	if r.config.LimitDownload != 0 {
+		args = append(args, "--limit-download", strconv.FormatUint(r.config.LimitDownload, 10))
+	}
 
 	c.Env = os.Environ()
 	c.Env = append(c.Env, "RESTIC_REPOSITORY="+r.config.Repository)

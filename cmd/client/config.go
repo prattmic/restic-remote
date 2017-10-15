@@ -53,6 +53,8 @@ func init() {
 	boundStringFlag("restic.binary", "", "restic binary path")
 	boundStringFlag("restic.repository", "", "restic repository path")
 	boundStringFlag("restic.password", "", "restic repository password")
+	boundStringFlag("restic.limit-download", "", "restic download bandwidth limit (KiB/s)")
+	boundStringFlag("restic.limit-upload", "", "restic upload bandwidth limit (KiB/s)")
 
 	// viper "google" sub-tree.
 	boundStringFlag("google.project-number", "", "Google Cloud project number for restic and update GCS operations")
