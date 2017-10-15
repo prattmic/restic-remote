@@ -11,3 +11,4 @@ server/app.*.yaml
 /release
 
 /dev-account
+/prod-account
