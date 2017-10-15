@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/prattmic/restic-remote/binver"
+	"github.com/prattmic/restic-remote/log"
 )
 
 // Config contains the configuration for restic.
@@ -71,8 +72,6 @@ func New(c Config) (*Restic, error) {
 // The repository, password, hostname, and backend options are all added to the
 // environment.
 func (r *Restic) run(args ...string) (string, string, error) {
-	c := exec.Command(r.config.Binary, args...)
-
 	if r.config.LimitUpload != 0 {
 		args = append(args, "--limit-upload", strconv.FormatUint(r.config.LimitUpload, 10))
 	}
@@ -80,6 +79,9 @@ func (r *Restic) run(args ...string) (string, string, error) {
 		args = append(args, "--limit-download", strconv.FormatUint(r.config.LimitDownload, 10))
 	}
 
+	log.Infof("Running %s %v", r.config.Binary, args)
+
+	c := exec.Command(r.config.Binary, args...)
 	c.Env = os.Environ()
 	c.Env = append(c.Env, "RESTIC_REPOSITORY="+r.config.Repository)
 	c.Env = append(c.Env, "RESTIC_PASSWORD="+r.config.Password)
