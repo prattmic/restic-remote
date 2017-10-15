@@ -9,3 +9,5 @@ server/app.*.yaml
 /upload
 
 /release
+
+/dev-account

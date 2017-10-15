@@ -12,6 +12,16 @@ const (
 	// ClientStarted indicates that a client has just come online.
 	ClientStarted Type = "client_started"
 
+	// ClientVersion contains the version of the client.
+	ClientVersion Type = "client_version"
+
+	// ResticVersion contains the version of restic.
+	ResticVersion Type = "restic_version"
+
+	// UpdateComplete indicates that the release has been updated and the
+	// client is restarting.
+	UpdateComplete Type = "update_complete"
+
 	// BackupStarted indicates that a backup has begun.
 	BackupStarted Type = "backup_started"
 

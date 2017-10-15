@@ -126,6 +126,36 @@ func (a *API) ClientStarted() error {
 	})
 }
 
+// ClientVersion writes a ClientVersion event.
+func (a *API) ClientVersion(v string) error {
+	return a.WriteEvent(&event.Event{
+		Type:      event.ClientVersion,
+		Timestamp: time.Now(),
+		Hostname:  a.hostname,
+		Message:   v,
+	})
+}
+
+// ResticVersion writes a ResticVersion event.
+func (a *API) ResticVersion(v string) error {
+	return a.WriteEvent(&event.Event{
+		Type:      event.ResticVersion,
+		Timestamp: time.Now(),
+		Hostname:  a.hostname,
+		Message:   v,
+	})
+}
+
+// UpdateComplete writes an UpdateComplete event.
+func (a *API) UpdateComplete(r *Release) error {
+	return a.WriteEvent(&event.Event{
+		Type:      event.UpdateComplete,
+		Timestamp: time.Now(),
+		Hostname:  a.hostname,
+		Message:   fmt.Sprintf("Updated to %+v", r),
+	})
+}
+
 // BackupStarted writes a BackupStarted event for dirs.
 func (a *API) BackupStarted(dirs []string) error {
 	return a.WriteEvent(&event.Event{

@@ -34,6 +34,28 @@ type updateOpts struct {
 }
 
 func updateCheck(ctx context.Context, a *api.API) error {
+	// Report the current versions to the API.
+	if err := a.ClientVersion(versionStr); err != nil {
+		log.Errorf("Error reporting client version: %v", err)
+	}
+
+	resticPath := viper.GetString("restic.binary")
+	if resticPath == "" {
+		return fmt.Errorf("restic path unknown")
+	}
+
+	rver, err := binver.Restic(resticPath)
+	if err != nil {
+		return fmt.Errorf("error getting restic version: %v", err)
+	}
+
+	if err := a.ResticVersion(rver); err != nil {
+		log.Errorf("Error reporting restic version: %v", err)
+	}
+
+	log.Infof("Current restic version: %s", rver)
+	log.Infof("Current client version: %s", versionStr)
+
 	if !viper.GetBool("update") {
 		log.Infof("Skipping update check")
 		return nil
@@ -47,7 +69,8 @@ func updateCheck(ctx context.Context, a *api.API) error {
 	log.Infof("Latest release: %+v", release)
 
 	opts := updateOpts{
-		release: release,
+		release:    release,
+		resticPath: resticPath,
 	}
 
 	opts.googleCredsFile = viper.GetString("google.credentials")
@@ -60,23 +83,10 @@ func updateCheck(ctx context.Context, a *api.API) error {
 		return fmt.Errorf("binary bucket not configured")
 	}
 
-	opts.resticPath = viper.GetString("restic.binary")
-	if opts.resticPath == "" {
-		return fmt.Errorf("restic path unknown")
-	}
-
 	opts.clientPath, err = os.Executable()
 	if err != nil {
 		return fmt.Errorf("error getting client path: %v", err)
 	}
-
-	rver, err := binver.Restic(opts.resticPath)
-	if err != nil {
-		return fmt.Errorf("error getting restic version: %v", err)
-	}
-
-	log.Infof("Current restic version: %s", rver)
-	log.Infof("Current client version: %s", versionStr)
 
 	opts.updateRestic = rver != release.ResticVersion
 	opts.updateClient = versionStr != release.ClientVersion
@@ -85,7 +95,7 @@ func updateCheck(ctx context.Context, a *api.API) error {
 		return nil
 	}
 
-	return performUpdate(ctx, opts)
+	return performUpdate(ctx, a, opts)
 }
 
 func download(ctx context.Context, dst *os.File, bkt *storage.BucketHandle, path string) error {
@@ -132,7 +142,7 @@ func downloadToTmp(ctx context.Context, bkt *storage.BucketHandle, release *api.
 	return name, nil
 }
 
-func performUpdate(ctx context.Context, opts updateOpts) error {
+func performUpdate(ctx context.Context, a *api.API, opts updateOpts) error {
 	resticBin := "restic"
 	clientBin := "client"
 	if runtime.GOOS == "windows" {
@@ -163,10 +173,10 @@ func performUpdate(ctx context.Context, opts updateOpts) error {
 		defer os.Remove(tmpClient)
 	}
 
-	return checkAndInstall(opts, tmpRestic, tmpClient)
+	return checkAndInstall(a, opts, tmpRestic, tmpClient)
 }
 
-func checkAndInstall(opts updateOpts, tmpRestic, tmpClient string) (err error) {
+func checkAndInstall(a *api.API, opts updateOpts, tmpRestic, tmpClient string) (err error) {
 	// Make sure we got working binaries with the correct versions.
 
 	if opts.updateRestic {
@@ -225,6 +235,10 @@ func checkAndInstall(opts updateOpts, tmpRestic, tmpClient string) (err error) {
 		if err := os.Rename(tmpClient, opts.clientPath); err != nil {
 			return fmt.Errorf("error moving new client: %v", err)
 		}
+	}
+
+	if err := a.UpdateComplete(opts.release); err != nil {
+		log.Errorf("Error reporting update complete: %v", err)
 	}
 
 	// Success! Re-exec to the new version. This isn't actually needed if
